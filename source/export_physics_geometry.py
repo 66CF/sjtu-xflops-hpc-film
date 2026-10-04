@@ -4,7 +4,9 @@ import numpy as np
 from PIL import Image
 from render_director import curve,smooth
 from ascii_solids import sample_worker,sample_chip
-from chip_choreography import chip_state,CHIP_START,CHIP_END
+from chip_choreography import CHIP_END
+from hero_choreography import hero_state,sample_hero,HERO_START
+from stair_platforms import platform_mask
 from opening_impact import impact_mask
 from stair_choreography import staircase_state,sample_climber
 
@@ -12,13 +14,11 @@ ROOT=Path(__file__).resolve().parents[1]
 
 def bodies(t):
     result=[]
-    if 4.65<=t<6.173:
-        x=curve(t,[(4.65,2210),(4.76,1620),(4.93,1320),(5.10,1080),(5.28,930),(5.65,890),(6.173,845)])
-        h=curve(t,[(4.65,640),(4.95,890),(5.2,1050),(5.7,1030),(6.173,1070)])
-        result.append((0,x,545,h*110/120,h,t,(0,.62+.14*np.sin(t*3),.015*np.sin(t*8)),'worker'))
-    elif CHIP_START<=t<CHIP_END:
-        path=chip_state(t);h=path['height']
-        result.append((1,path['x'],path['y'],h,h,t,path['rotation'],'chip'))
+    if HERO_START<=t<CHIP_END:
+        path=hero_state(t);h=path['height']
+        # A stable body ID persists throughout the fold and the exit.  The
+        # geometry sampler is identical to the foreground ASCII renderer.
+        result.append((0,path['x'],path['y'],path['width'],h,t,path['rotation'],'hero'))
     elif 11<=t<17.05:
         zoom=curve(t,[(11,1),(11.65,1),(12.3,.70),(13.1,.51),(14,.46),(15.8,.46),(16.7,.46),(17.4,.46)])
         opening=float(smooth((t-11.15)/.7));reveal=float(smooth((t-12.25)/.85))
@@ -50,15 +50,15 @@ def main():
     xx,yy=np.meshgrid((np.arange(512)+.5)*3.75,(np.arange(288)+.5)*3.75)
     for fi,t in enumerate(times):
         layer,velocity=impact_mask(t,(512,288))
-        if 17.18<=t<19.75:
-            for x,y,w in ((230.,970.,250.),)+staircase_state(t)['platforms']:
-                active=(xx>=x)&(xx<=x+w)&(yy>=y)&(yy<y+5)
-                layer|=active
+        if 17.05<=t<19.75:
+            layer|=platform_mask(t,xx,yy)
         before={b[0]:b for b in bodies(t-1/240)};after={b[0]:b for b in bodies(t+1/240)}
         for key,x,y,w,h,pose,rotation,kind in bodies(t):
             fn=sample_worker if kind=='worker' else sample_chip
-            resolution=(48,max(30,round(48*h/w)))
-            state=sample_climber(pose,resolution=resolution) if kind=='climber' else fn(pose,rotation=rotation,resolution=resolution)
+            resolution=(110,120) if kind=='hero' else (48,max(30,round(48*h/w)))
+            if kind=='hero':state=sample_hero(pose,resolution=resolution)
+            elif kind=='climber':state=sample_climber(pose,resolution=resolution)
+            else:state=fn(pose,rotation=rotation,resolution=resolution)
             shape=Image.fromarray(np.uint8(state['mask'])*255)
             shape=shape.resize((max(1,round(w/3.75)),max(1,round(h/3.75))),Image.Resampling.BILINEAR)
             canvas=Image.new('L',(512,288));canvas.paste(shape,(round((x-w/2)/3.75),round((y-h/2)/3.75)))

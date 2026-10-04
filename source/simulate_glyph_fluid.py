@@ -417,8 +417,8 @@ def simulate(args):
     if args.gather_reference:
         reference=np.load(args.gather_reference)
         assert len(reference['group'])==n,'Gather reference particle identities changed'
-        ids=np.arange(n,dtype=np.uint64)
-        shown=((group<2)&((((ids*2654435761)&4294967295)%3)!=0))|((group==2)&((ids%4)==0))
+        from glyph_material import visible_glyphs
+        shown=visible_glyphs(group)&(group<3)
         baseline=reference['xy'][np.argmin(abs(reference['times']-8.0))]
         capture=shown&(baseline[:,0]>0)&(baseline[:,0]<1920)&(baseline[:,1]>0)&(baseline[:,1]<1080)&(birth<8.)
         gather_flags[shown]=2;gather_flags[capture]=1
@@ -505,7 +505,7 @@ def simulate(args):
         release=reference['release']
         handoff_i=int(np.argmin(abs(packed['times']-8.5)))
         omega=(packed['angle'][handoff_i+1]-packed['angle'][handoff_i-1])/(packed['times'][handoff_i+1]-packed['times'][handoff_i-1])
-        printed_size=size[gather_ids]*np.where(group[gather_ids]==2,.84,.78)
+        printed_size=size[gather_ids]
         handoff_path=Path(args.handoff_output or out.with_name('gather-handoff.npz'))
         np.savez_compressed(handoff_path,time=np.float32(8.5),source_ids=gather_ids,
                             xy=packed['xy'][handoff_i,gather_ids],velocity=packed['velocity'][handoff_i,gather_ids],

@@ -20,7 +20,7 @@ import wave
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "source"
 WORK = ROOT / "work"
-FINAL = ROOT / "output" / "SJTU_Xflops_Physics_v2.mp4"
+FINAL = ROOT / "output" / "SJTU_Xflops_Physics_v3.mp4"
 FONT = Path("/System/Library/Fonts/Menlo.ttc")
 
 
@@ -119,10 +119,21 @@ def preflight():
             "This render configuration uses the macOS Menlo font collection.")
     for name in ("make_audio_director.py", "render_director.py", "render_kinetic.py",
                  "ascii_solids.py", "kinetic_geometry.py", "film_material.py",
-                 "opening_impact.py", "chip_choreography.py", "stair_choreography.py"):
+                 "opening_impact.py", "chip_choreography.py", "stair_choreography.py",
+                 "terminal_timing.py", "glyph_material.py", "hero_choreography.py",
+                 "stair_platforms.py", "ambient_glyphs.py"):
         require((SOURCE/name).is_file(), f"Required source file is missing: {SOURCE/name}")
     flow = check_cache(WORK/"physics-v5/flow.npz", "xy", 403, 18479, 2, 3.0, 19.75)
     check_cache(WORK/"physics-v5/knot.npz", "xyz", None, None, 3, 8.5, 232/24)
+    import numpy as np
+    with np.load(WORK/"physics-v5/flow.npz") as fluid, np.load(WORK/"physics-v5/knot.npz") as knot:
+        source_ids = knot["source_ids"]
+        require(np.array_equal(knot["size"], fluid["size"][source_ids]),
+                "The knot has an older scaled glyph material. Recompute the GPU gather and knot for v3.")
+        handoff = int(np.argmin(abs(fluid["times"]-8.5)))
+        require(np.allclose(knot["xyz"][0,:,:2]+[960,540],
+                            fluid["xy"][handoff,source_ids], atol=.001, rtol=0),
+                "The knot and fluid are from different simulation runs. Recompute the knot.")
     print(f"Baked fluid GPU: {flow.get('gpu','not recorded')}", flush=True)
 
 

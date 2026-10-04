@@ -285,13 +285,12 @@ def simulate():
             source_times = flow["times"]
             j = int(np.argmin(abs(source_times-START)))
             assert abs(float(source_times[j])-START) < 1e-6
-            print_factor = np.where(group == 2, .84, .78)
             match = {
                 "time": float(source_times[j]),
                 "position_max_error_px": float(np.max(abs(incoming_xy-flow["xy"][j, source_ids]))),
                 "velocity_max_error_px_s": float(np.max(abs(incoming_velocity-flow["velocity"][j, source_ids]))),
                 "angle_max_error_deg": float(np.max(abs(incoming_angle-flow["angle"][j, source_ids]))),
-                "print_size_max_error_px": float(np.max(abs(size-flow["size"][source_ids]*print_factor))),
+                "print_size_max_error_px": float(np.max(abs(size-flow["size"][source_ids]))),
                 "identical_glyphs": bool(np.array_equal(glyph, flow["glyph"][source_ids])),
                 "identical_groups": bool(np.array_equal(group, flow["group"][source_ids])),
             }

@@ -9,6 +9,8 @@ from functools import lru_cache
 import argparse, math, json, subprocess, time
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
+from terminal_timing import (INTRO, TASKS, LOGS, SCROLL_KEYS, ROW_KEYS,
+                             scroll, opening_rows, second_rows)
 
 ROOT=Path(__file__).resolve().parents[1]
 W,H,FPS,DURATION=1920,1080,24,30
@@ -63,58 +65,6 @@ def batch(im,xy,size,glyph,alpha=1.,angle=None,depth=None):
 def plain(im,txt,xy,size=27,value=255,anchor='la'):
     ImageDraw.Draw(im).text(xy,txt,font=font(size),fill=round(value),anchor=anchor)
 
-INTRO=[
-    '/*','A new era of compute.', '',
-    '    ...error... Serial mode is not enough.',
-    'A bigger question has been detected.',
-    'Multiple minds required.', '',
-    'An upgrade is in progress...', '',
-    'Ready >>',
-    'Set System Mode to: PARALLEL',
-    '{ Initialize a new generation of computing }',
-    '    ...from one core to collective intelligence...',
-    '    ...breaking through the next bottleneck...',
-    'The world is ready for the next discovery.',
-    '    >> Accelerate?', 'Sure.',
-    '    // Set mode: XFLOPS.',
-    'Open possibilities. Build the infrastructure.', '',
-    'HPC system updating...', 'LOG(DEBUG): Executing <<', '',
-    '#include <mpi.h>',
-    'int main(int argc, char **argv) {',
-    '    MPI_Init(&argc, &argv);',
-    '    // Initialize the compute fabric',
-    '    launch_parallel_kernels();',
-    '    synchronize_workers();',
-    '    return discover_what_is_next();',
-    '}', '',
-    '// Start the main loop',
-    'while (residual > tolerance) {',
-    '    exchange_boundaries();',
-    '    iterate();',
-    '}', '',
-    '>>', 'Initializing system upgrade protocol...',
-    'Activating: SJTU Xflops / Shanghai Jiao Tong University',
-]
-TASKS=['Mapping compute kernels to available execution units',
-       'Scheduling independent tasks across the cluster',
-       'Preparing high bandwidth interconnect routes',
-       'Synchronizing collective communication across all ranks',
-       'Retrieving memory pages for the next working set',
-       'Building a new pipeline for distributed training',
-       'Activating all-reduce gradient synchronization',
-       'Removing unnecessary serialization from the hot path',
-       'Overlapping memory transfers with active computation',
-       'Restoring numerical stability across boundary conditions',
-       'Creating the next simulation from a better question',
-       'Checking shared state and solver convergence',
-       'Committing a new generation of parallel potential',
-       'Releasing the next wave of discovery']
-LOGS=INTRO.copy()
-for k in range(150):
-    msg=TASKS[k%len(TASKS)]+'...'
-    detail=f' rank={k%64:02d} / block={1024*(k%8+1):04d} / phase={k%9+1:02d} / active'
-    LOGS.append((msg+detail)[:89].ljust(90)+['[OK]','[OK]','[>>]'][k%3])
-
 def pretear_alpha(xy,t):
     # The reference opens small holes in late terminal rows before those rows
     # release into the larger wind field. This precedes bulk advection.
@@ -132,52 +82,19 @@ def terminal_line(im,text,x,y,size=27,t=None):
     xy=np.array([[x+(i+.5)*advance,y+size*2/3] for i in range(len(text))])
     batch(im,xy,size,np.array(list(text)),pretear_alpha(xy,t) if t is not None else 1.)
 
-SCROLL_KEYS=[(0,0),(2.25,0),(2.34,.8),(2.42,1.57),(2.51,1.97),(2.59,3.55),(2.67,2.77),(2.84,2.77),(2.92,.8),(3.01,.4),(3.17,.8),(3.26,.4),(3.43,.4),(3.51,0),(4.8,0)]
-ST=np.arange(0,5.01,.001)
-SV=np.array([curve(t,SCROLL_KEYS) for t in ST])*H
-SI=np.cumsum(SV)*.001
-def scroll(t):return math.floor(float(np.interp(t,ST,SI))/36)*36
-ROW_KEYS=[(0,0),(.2,1),(.45,2),(1.45,2),(1.70,5),(1.95,8),(2.12,13),(2.25,19),(2.34,29),(3.8,29)]
-
 def terminal(im,t,second=False):
     if not second:
-        shift=scroll(t);rowmax=int(curve(t,ROW_KEYS)+shift/36)
-        for row in range(min(rowmax,len(LOGS))):
-            y=40+row*36-shift
-            if -36<y<H:terminal_line(im,LOGS[row],42,y,27,t=t)
+        for row,line,y in opening_rows(t):
+            terminal_line(im,line,42,y,27,t=t)
     else:
-        local=t-9.45
-        y0=curve(t,[(9.45,1060),(9.64,510),(9.90,70),(10.25,40),(11.5,-470),(12,-970)])
-        lines=['Ready >>','Set System Mode to: DISTRIBUTED',
-               '{ Synchronizing the next generation of intelligence }',
-               'GLOBAL COMPUTE ZONES:','',
-               '>>> SYSTEM UPDATE: XFLOPS / AI INFRASTRUCTURE',
-               'ModuleLoaded: TrainingEngine.cpp       RoutingOptimizer: ENABLED',
-               'Autolayer: DATA_PARALLEL               GradientSync: ALL_REDUCE',
-               'Interconnect: ACTIVE                  WorkerState: READY','',
-               '// SYSTEM MESSAGE - Running background loop',
-               'TensorShardingPlan: Resolved',
-               'Checkpoint: Consistent',
-               'CollectiveGroup: Synchronized',
-               'Optimizer.step() -> NEXT_ITERATION','',
-               '#include <xflops/collective.h>',
-               'int main() {',
-               '    launch_training_pipeline();',
-               '    synchronize_gradients();',
-               '    return next_breakthrough();','}', '',
-               '>>> COMPUTE ONLINE - OPEN - COLLABORATIVE - PARALLEL']
-        for k in range(50):lines.append(LOGS[40+k])
-        limit=int(max(0,local)*85)+8
-        for row,line in enumerate(lines[:limit]):
-            y=y0+row*36
-            if -40<y<H:
-                if t<11.35:terminal_line(im,line,42,y,26)
-                elif line:
-                    k=np.arange(len(line));dt=t-11.35
-                    xx=42+(k+.5)*26*19.8/27
-                    phase=xx*.004+row*.3
-                    xy=np.column_stack((xx+dt*dt*(1000+500*np.sin(phase)),y+26*2/3+dt*dt*(-850+450*np.cos(phase))))
-                    batch(im,xy,26,np.array(list(line)),1-smooth(dt/.65),dt*70*np.sin(phase))
+        for row,line,y in second_rows(t):
+            if t<11.35:terminal_line(im,line,42,y,26)
+            elif line:
+                k=np.arange(len(line));dt=t-11.35
+                xx=42+(k+.5)*26*19.8/27
+                phase=xx*.004+row*.3
+                xy=np.column_stack((xx+dt*dt*(1000+500*np.sin(phase)),y+26*2/3+dt*dt*(-850+450*np.cos(phase))))
+                batch(im,xy,26,np.array(list(line)),1-smooth(dt/.65),dt*70*np.sin(phase))
 
 def prepare_blowout():
     """Integrate velocity. Never interpolate particles toward a target model."""

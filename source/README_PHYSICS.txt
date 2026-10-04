@@ -1,7 +1,7 @@
 SJTU XFLOPS — PHYSICS ASCII FILM
 
 DELIVERY
-Final movie: output/SJTU_Xflops_Physics_v2.mp4
+Final movie: output/SJTU_Xflops_Physics_v3.mp4
 30.000 seconds; 1920 x 1080; 24 fps / 720 video frames
 H.264 video; AAC stereo audio, 48 kHz
 All on-screen copy is English. The soundtrack is original synthesis.
@@ -116,8 +116,33 @@ The stair hero faces screen-right, anticipates each jump, follows a ballistic
 flight, compresses with planted soles on landing and exits along the top
 platform. Drawing and masks share stair_choreography.py; landing audio is
 synchronized to 17.70, 18.33 and 18.96 s. Film duration, output format and the
-403-frame fluid sampling range remain unchanged. The previous movie is kept
-as output/SJTU_Xflops_Physics.mp4; the build writes the v2 filename above.
+403-frame fluid sampling range remain unchanged. Earlier movies are retained.
+
+V3 CONTINUITY AND GRAPHIC REVISION
+The blue substrate is now exactly RGB (20,31,244) at every zero-ink pixel;
+film grain, vertical striation, bloom and color-channel shifts are removed.
+All free physical glyphs keep their seeded size and Menlo Bold face. The
+stable visible subset is shared by rendering and GPU gather in glyph_material.py.
+Knot glyphs inherit the exact raw size and face; perspective moves their
+centres without resizing their printed glyphs.
+
+hero_choreography.py retains one body through the 5.70-6.62 s retraction of
+arms and legs into the processor. The same body continues along the rightward
+exit. Its visible geometry is also exported into the fresh fluid collision bake.
+stair_platforms.py supplies thick top/front/side ASCII faces and matching
+solid collision masks. The steps preserve the original planted-foot heights.
+The WAITING and ALL_REDUCE status tiles are 42px, centred between worker rows.
+
+ambient_glyphs.py adds coherent PARALLEL / COMPUTE / AI_INFRA word columns
+behind the 8 s knot shot, entering from the right and leaving in the updraft.
+A sparse set of existing late fluid IDs continues into the ending under damped
+motion and a growing outward force. They retain position, velocity, size and
+face on transfer, and individual marks leave through the image boundary.
+
+terminal_timing.py is the shared visible-output timeline for opening terminal,
+second terminal and closing text sound events. No independent random typing
+schedule remains. PCM click onsets are aligned to output frame boundaries.
+The reference video and audio are never embedded or sampled.
 
 RECOMPUTE THE KNOT
 This works on the normal NumPy render host:
@@ -187,7 +212,7 @@ SOURCE MAP
 build_director.py           Strict cache preflight, render, audio and final mux
 render_director.py          Film composition, typography and cached physics playback
 ascii_solids.py             Articulated worker/chip geometry and surface sampling
-film_material.py            Subtle vertical grain, narrow bloom and display material
+film_material.py            Pure blue/white, time-independent color mapping
 simulate_glyph_fluid.py     CUDA fluid, inertial tracers and finite-radius contacts
 export_physics_geometry.py  Projected articulated masks and boundary velocities
 simulate_type_knot.py       240 Hz 3D elastic-knot simulation
@@ -200,3 +225,10 @@ stair_choreography.py       Right-facing jumps, planted soles and grounded exit
 
 Keep the complete source directory and required work/physics-v5 caches and
 inputs together. No external reference-media download is required.
+
+V3 MODULES
+terminal_timing.py          Shared frame events for terminal text and audio
+glyph_material.py           Stable particle visibility, without font changes
+hero_choreography.py         Continuous runner-to-chip retraction and exit
+stair_platforms.py           Thick ASCII faces and shared collision masks
+ambient_glyphs.py            Repeating word field and dwindling closing remnants

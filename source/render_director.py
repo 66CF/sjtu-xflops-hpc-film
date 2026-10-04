@@ -6,6 +6,7 @@ import math,argparse,subprocess,time
 import numpy as np
 from PIL import Image,ImageDraw,ImageFont
 import render_kinetic as old
+from glyph_material import visible_glyphs
 
 ROOT=Path(__file__).resolve().parents[1]
 W,H,FPS,DURATION=1920,1080,24,30
@@ -30,35 +31,26 @@ def physical_flow(im,t,opacity=1.,decimate=1,exclude_ids=None):
     # Cache samples interpolate an integrated simulation, never design targets.
     group=data['group'];ids=np.arange(len(group));size=data['size'].copy()
     birth=data.get('birth',np.where(group==3,data['release']-.025,0.))
-    alive=(t>=birth)&((ids%decimate==0)|(group==3))
+    alive=(t>=birth)&visible_glyphs(group)
     aa=opacity*alive.astype(float)
     if exclude_ids is not None:aa[exclude_ids]=0
-    # The force field is deliberately richer than the visible print. A stable
-    # material sample keeps curls legible without forming a solid white wall.
-    material=float(smooth((t-4.15)/.6))
-    pinned=data['attached'][i]&(group==0)
-    material=material*(~pinned)
-    fine=(group==0)|(group==1)
-    visible=((ids*2654435761)%4294967296)%3!=0
-    visible=np.where(group==2,ids%4==0,visible)
-    visible=np.where(group==3,True,visible)
-    aa*=1-material*(~visible)
-    size*=np.where(fine,1-.22*material,np.where(group==2,1-.16*material,1.))
+    if t>=19.10:
+        from ambient_glyphs import exclusion_ids
+        aa[exclusion_ids(t)]=0
+    # The camera's attention shifts to the worker grid after the terminal.
+    # Distance is expressed through contrast, never a change of font or size.
+    rear=float(smooth((t-10.6)/.65))
+    aa*=np.where(group<3,1-.73*rear,1.)
+    # A moving letter keeps its original size and Menlo Bold face. Release,
+    # scene boundaries and obstacle contact never change its printed identity.
     # Once the lead worker takes the stairs, the released worker surfaces
     # recede visually. Their integrated collision/wake motion is unchanged.
     focus=float(smooth((t-17.22)/.42))
     aa*=np.where(group==3,1-.48*focus,1.)
-    coarse=group==2
-    size[coarse]=mix(size[coarse],np.minimum(size[coarse],26.),focus)
-    bold=t<4.45
     blur=(np.linalg.norm(velocity,axis=1)>420)&(aa>.01)
     if blur.any():
-        batch(im,xy[blur]-velocity[blur]/120,size[blur],data['glyph'][blur],aa[blur]*.15,angle[blur],bold=bold)
-    if bold:
-        batch(im,xy,size,data['glyph'],aa,angle,bold=True)
-    else:
-        batch(im,xy[~pinned],size[~pinned],data['glyph'][~pinned],aa[~pinned],angle[~pinned],bold=False)
-        batch(im,xy[pinned],size[pinned],data['glyph'][pinned],aa[pinned],angle[pinned],bold=True)
+        batch(im,xy[blur]-velocity[blur]/120,size[blur],data['glyph'][blur],aa[blur]*.15,angle[blur],bold=True)
+    batch(im,xy,size,data['glyph'],aa,angle,bold=True)
     return True
 
 @lru_cache(maxsize=256)
@@ -92,12 +84,6 @@ old.font=lambda n:face(n,True)
 # Terminal rows stay intact until the visible physical cursor strikes them.
 old.pretear_alpha=lambda xy,t:np.ones(len(xy))
 # Language supports the physical joke: a compute process literally starts running.
-old.INTRO[1]='A program can run.'
-old.INTRO[3]='    ...error... One core can only go so far.'
-old.INTRO[4]='A bigger question has been detected.'
-old.INTRO[5]='More than one mind required.'
-old.INTRO[14]='The next breakthrough is a team effort.'
-old.LOGS[:len(old.INTRO)]=old.INTRO
 
 def label(im,txt,xy,size=29,alpha=1.):
     f=face(size);advance=size*.75;w=round(advance*len(txt))+16;h=round(size*1.19)
@@ -209,11 +195,10 @@ def stream(im,t,phase='run',opacity=1.):
     batch(im,np.column_stack((xx,yy)),sizes,g,alpha,angles)
 
 def hero_worker(im,t):
-    from ascii_solids import sample_worker
-    cx=curve(t,[(4.65,2210),(4.76,1620),(4.93,1320),(5.10,1080),(5.28,930),(5.65,890),(6.17,845)])
-    h=curve(t,[(4.65,640),(4.95,890),(5.2,1050),(5.7,1030),(6.17,1070)])
-    state=sample_worker(t,rotation=(.0,.62+.14*math.sin(t*3),.015*math.sin(t*8)),resolution=(110,120))
-    solid(im,state,(cx,545),(h*110/120,h),cell=25)
+    from hero_choreography import hero_state,sample_hero
+    path=hero_state(t)
+    solid(im,sample_hero(t),(path['x'],path['y']),
+          (path['width'],path['height']),cell=path['cell'])
 
 def chip(im,t):
     from ascii_solids import sample_chip
@@ -262,8 +247,8 @@ def data_knot(im,t):
             rate=-1200*vel[:,2]/(1200+p[:,2])**2
             screen_v=vel[:,:2]*fac[:,None]+p[:,:2]*rate[:,None]
             blur=np.linalg.norm(screen_v,axis=1)>420
-            batch(im,xy[blur]-screen_v[blur]/120,KNOT['size'][blur]*fac[blur],KNOT['glyph'][blur],depthfade[blur]*.15,ang[blur],p[blur,2],bold=False)
-            batch(im,xy,KNOT['size']*fac,KNOT['glyph'],depthfade,ang,p[:,2],bold=False)
+            batch(im,xy[blur]-screen_v[blur]/120,KNOT['size'][blur],KNOT['glyph'][blur],depthfade[blur]*.15,ang[blur],p[blur,2],bold=True)
+            batch(im,xy,KNOT['size'],KNOT['glyph'],depthfade,ang,p[:,2],bold=True)
         else:
             ids=np.arange(len(p));keep=(ids%3==0)|(ids%17==0)
             batch(im,xy[keep],KNOT['size'][keep]*fac[keep]*.92,KNOT['glyph'][keep],alpha*depthfade[keep],ang[keep],p[keep,2],bold=False)
@@ -367,8 +352,8 @@ def workers(im,t):
             if t>16.15:
                 flash=float(smooth((t-16.15)/.08)*(1-smooth((t-16.48)/.12)))
                 if flash>0:label(im,'X',(x,y-h*.055),max(10,round(35*zoom)),flash)
-    timed_label(im,'WAITING FOR RANK 23_',(525,1010),t,15.18,16.10,24)
-    timed_label(im,'ALL_REDUCE: READY',(525,1010),t,16.14,16.8,24)
+    timed_label(im,'WAITING FOR RANK 23_',(960,535),t,15.0,16.10,42)
+    timed_label(im,'ALL_REDUCE: READY',(960,535),t,16.14,17.0,42)
     if t>16.18 and PHYSICS is None:
         # Output leaves the workers along curved tributaries, joining one
         # stream underneath them. They produce the next scene's stepping path.
@@ -382,15 +367,9 @@ def workers(im,t):
 
 def takeoff(im,t):
     from stair_choreography import staircase_state,sample_climber
+    from stair_platforms import draw_platforms
     path=staircase_state(t)
-    opacity=float(smooth((t-17.05)/.13)*(1-smooth((t-19.55)/.40)))
-    f=face(32)
-    for x,y,w in ((230.,970.,250.),)+path['platforms']:
-        # The printed underscore top is the actual sole contact plane.
-        txt='_'*math.ceil(w/f.getlength('_'));box=f.getbbox(txt)
-        line=Image.new('L',(round(w),box[3]-box[1]))
-        ImageDraw.Draw(line).text((-box[0],-box[1]),txt,font=f,fill=255)
-        im.paste(round(255*opacity),(round(x),round(y)),line)
+    draw_platforms(im,t,batch)
     if path['visible']:
         h=path['height']
         solid(im,sample_climber(t,resolution=(110,120)),path['center'],(h*110/120,h),cell=path['cell'])
@@ -429,24 +408,22 @@ def ending(im,t):
 
 def ink_frame(t):
     im=Image.new('L',(W,H))
+    from ambient_glyphs import draw_background
+    draw_background(im,t,batch=batch)
     if t<3.03:old.terminal(im,t)
     elif t<4.62:
         if not physical_flow(im,t):old.blowout(im,t)
         opening_impact(im,t)
-    elif t<6.173:
+    elif t<7.80:
         if not physical_flow(im,t):
             if t<5.18:old.blowout(im,t)
             stream(im,t,'run',float(smooth((t-4.60)/.38)))
         hero_worker(im,t)
-        timed_label(im,'<<HPC IS...',(1360,725),t,5.22,6.173,29)
-    elif t<7.80:
-        if not physical_flow(im,t):stream(im,t,'chip')
-        chip(im,t)
         timed_label(im,'<<HPC IS...',(1360,725),t,5.22,6.45,29)
-        timed_label(im,'>>FASTER>>',(960,525),t,7.78,8.38,29)
+        timed_label(im,'>>FASTER>>',(960,525),t,7.78,8.38,42)
     elif t<8.5:
         if not physical_flow(im,t):stream(im,t,'sheet')
-        timed_label(im,'>>FASTER>>',(960,525),t,7.78,8.38,29)
+        timed_label(im,'>>FASTER>>',(960,525),t,7.78,8.38,42)
     elif t<9.67:
         knot=load_knot()
         if knot is not None and 'source_ids' in knot:

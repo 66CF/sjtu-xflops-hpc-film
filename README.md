@@ -2,6 +2,8 @@
 
 30-second, 1920 × 1080, 24 fps promotional film for SJTU Xflops. All on-screen copy is English, with an original synthesized stereo soundtrack.
 
+The current working cut is **v3**, rendered to `output/SJTU_Xflops_Physics_v3.mp4`. It adds a flat blue background, synchronized terminal sound, fixed particle typography, a continuous runner-to-chip fold, substantial ASCII steps, central status tiles and dwindling closing remnants. The published links below still point to the earlier v2 delivery.
+
 ![Film preview](assets/preview.jpg)
 
 **[Watch / download the film](https://github.com/66CF/sjtu-xflops-hpc-film/releases/download/v1.0.0/SJTU_Xflops_Physics_v2.mp4)** · **[Motion revision comparison (silent)](https://github.com/66CF/sjtu-xflops-hpc-film/releases/download/v1.0.0/SJTU_Xflops_Motion_Changes.mp4)** · **[All release assets](https://github.com/66CF/sjtu-xflops-hpc-film/releases/tag/v1.0.0)**
@@ -9,7 +11,7 @@
 ## Motion and physics
 
 - A visible `RUN` block collides with terminal characters. Letters release through contact, neighbouring impacts and accumulated fluid drag.
-- A chip enters from the left and accelerates off the right edge before `FASTER`.
+- The runner retracts its limbs into the same chip, flips back to its X face, and accelerates off the right edge before `FASTER`.
 - The same flowing characters gather into a deformable 3D knot, preserving position, velocity, glyph and angle at the handoff.
 - Parallel chip workers synchronize; the leader turns right, crouches, jumps onto three platforms, lands, and runs along the top platform.
 - Readable emphasis uses independent white tiles with blue lettering.
@@ -21,7 +23,7 @@ The GPU cache was computed on an RTX 4070 Laptop GPU using CuPy/CUDA: 18,479 par
 Install Python 3, NumPy, Pillow and FFmpeg (including FFprobe). The renderer uses the macOS Menlo font at `/System/Library/Fonts/Menlo.ttc`.
 
 ```bash
-git clone https://github.com/66CF/sjtu-xflops-hpc-film.git
+git clone --branch v1.0.0 https://github.com/66CF/sjtu-xflops-hpc-film.git
 cd sjtu-xflops-hpc-film
 python3 -m venv .venv
 source .venv/bin/activate
@@ -32,7 +34,7 @@ python3 source/build_director.py --check-only
 python3 source/build_director.py
 ```
 
-The bundle extracts the exact simulation inputs and baked caches into `work/physics-v5/`. **No GPU is needed to render the baked caches.** The final output is `output/SJTU_Xflops_Physics_v2.mp4`.
+The v1.0.0 bundle reproduces the tagged v2 source. The current v3 source needs its freshly computed caches in `work/physics-v5/`; older scaled knot glyphs are rejected by preflight. **No GPU is needed to render baked caches.** The current output is `output/SJTU_Xflops_Physics_v3.mp4`.
 
 For CUDA recomputation and detailed production notes, see [source/README_PHYSICS.txt](source/README_PHYSICS.txt). Use the current inputs and generate a fresh base simulation before the gather pass.
 
@@ -50,7 +52,12 @@ For CUDA recomputation and detailed production notes, see [source/README_PHYSICS
 | `source/simulate_glyph_fluid.py` | CUDA fluid, contact and particle solver |
 | `source/simulate_type_knot.py` | Continuous 3D elastic-knot simulation |
 | `source/make_audio_director.py` | Original synthesized soundtrack |
-| `source/film_material.py` | Blue/white texture and finishing |
+| `source/film_material.py` | Flat blue/white color mapping |
+| `source/terminal_timing.py` | Shared frame events for visible text and synchronized sound |
+| `source/glyph_material.py` | Stable particle visibility and printed size |
+| `source/hero_choreography.py` | Continuous runner-to-chip fold and rightward exit |
+| `source/stair_platforms.py` | Thick ASCII top/front/side faces and collision masks |
+| `source/ambient_glyphs.py` | Repeating word columns and persistent closing remnants |
 
 The `render_kinetic.py`, `kinetic_geometry.py` and `kinetic_later.py` modules retain shared helpers and preview fallbacks. `build_director.py` is the current build entry point and requires the final caches.
 

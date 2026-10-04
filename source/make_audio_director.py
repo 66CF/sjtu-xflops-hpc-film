@@ -10,7 +10,9 @@ Every sound is original.
 
 from pathlib import Path
 import wave
+import json
 import numpy as np
+from terminal_timing import opening_events, second_events, closing_events
 
 SR = 48_000
 DURATION = 30.0
@@ -19,6 +21,8 @@ N = int(SR * DURATION)
 RNG = np.random.default_rng(20261007)
 master = np.zeros((N, 2), dtype=np.float64)
 music = np.zeros_like(master)
+terminal_bus = np.zeros_like(master)
+terminal_audit = []
 
 
 def timeline(seconds):
@@ -108,23 +112,30 @@ def pad(notes, seconds=4.6):
     return result * env / len(notes)
 
 
-def terminal(start, end, gain=.05, acceleration=True):
-    """Bursty rounded key/line sounds with deterministic, uneven timing."""
-    when = start
-    while when < end:
-        progress = (when - start) / (end - start)
-        seconds = .035
-        t = timeline(seconds)
-        sig = filtered_noise(seconds, 520, 3400)
-        sig += .28 * np.sin(2 * np.pi * (590 + 180 * RNG.random()) * t)
-        sig *= (1 - np.exp(-t / .001)) * np.exp(-t / .006)
-        add(sig, when, gain * (.6 + .4 * progress), float(RNG.uniform(-.22, .22)))
-        interval = RNG.uniform(.045, .13)
-        if acceleration:
-            interval *= 1.1 - .56 * progress
-        if RNG.random() < .12:
-            interval += .07
-        when += interval
+def terminal_events(events, gain=.035):
+    """One dry key/line transient per actual visible output frame.
+
+    Timing comes only from the renderer's shared event table. Seeded noise
+    changes each key's timbre, never its onset or the gaps between output.
+    At 24 fps / 48 kHz each video frame is exactly 2,000 audio samples.
+    """
+    for event in events:
+        when=event['frame']/24
+        is_key=event['kind']=='key'
+        seconds=.027 if is_key else .033
+        u=timeline(seconds)
+        frequency=620+((event['frame']*17)%130)
+        sig=filtered_noise(seconds,520,3400)
+        sig+=.30*np.sin(2*np.pi*frequency*u)
+        sig*=(1-np.exp(-u/.00065))*np.exp(-u/(.0044 if is_key else .0055))
+        level=event.get('gain',gain)
+        if event['scene']=='opening':
+            level*=.65 if is_key else min(1.13,.80+.08*len(event['rows']))
+        pan=-.10 if is_key else -.035
+        add(sig,when,level,pan,terminal_bus)
+        terminal_audit.append(dict(event,audio_sample=round(when*SR),
+                                   peak_offset_samples=int(np.argmax(np.abs(sig))),
+                                   duration_samples=len(sig)))
 
 
 def whoosh(start, seconds, gain=.04, lo=220, hi=3200, direction=1):
@@ -146,10 +157,10 @@ def soft_impact(start, gain=.15, note=38):
     add(sig, start, gain)
 
 
-# Deliberate boot, then increasingly urgent terminal output at 1.5–2.9 seconds.
+# A typed opener gives way to real output rows. Both image and sound use the
+# same 24 fps event schedule, including the quiet hold and accelerating scroll.
 add(pluck(74, .45, .05), .20, .085, -.15, music)
-terminal(.50, 1.30, .029, False)
-terminal(1.50, 2.90, .071, True)
+terminal_events(opening_events(),.052)
 for when, note in [(1.50, 62), (2.27, 69), (2.87, 74)]:
     add(pluck(note, .36, .04), when, .049, .12, music)
 add(pad([50, 57, 62], 3.9), .7, .08, -.15, music)
@@ -167,9 +178,13 @@ for when, gain, pan in [(3.30,.047,-.48),(3.60,.044,-.10),(4.00,.042,.44)]:
 whoosh(4.47, .42, .072, 170, 3600, 1)
 soft_impact(4.65, .17)
 add(pluck(69, .45, .13), 4.67, .095, .12, music)
-soft_impact(6.17, .16, 41)
-whoosh(6.14, .31, .043, 290, 3200, -1)
-add(pluck(77, .65, .10), 6.19, .08, -.22, music)
+# The same worker folds its limbs into the die: a restrained mechanical
+# closure belongs to this body, with no second entrance impact or passing rush.
+u=timeline(.15)
+closure=(.48*np.sin(2*np.pi*330*u)+filtered_noise(.15,500,2450)*.17)
+closure*=np.exp(-u/.025)*(1-np.exp(-u/.002))*np.clip((.15-u)/.035,0,1)
+add(closure,6.30,.036,-.06)
+add(pluck(77,.40,.05),6.33,.035,-.08,music)
 # The delayed right channel ends at 7.70 s as the die clears the right edge.
 whoosh(7.38, .289, .044, 320, 3200, 1)
 add(pluck(74, .30, .08), 7.633, .049, .28, music)
@@ -178,7 +193,7 @@ soft_impact(8.47, .18)
 for j, note in enumerate([62, 69, 77]):
     add(pluck(note, .68, .17), 8.47 + j * .065, .079 - j * .01, -.4 + j * .4, music)
 whoosh(9.24, .32, .049, 450, 3550, 1)
-terminal(9.60, 10.16, .050, True)
+terminal_events(second_events(),.031)
 
 
 # Detail sounds are deliberately short and sparse; no continuous sci-fi siren.
@@ -286,11 +301,8 @@ for beat in range(29):
     if when<15:
         add(hat(),when+.25,.030 if when<10.7 else .019,-.2 if beat%2 else .2)
 
-# Tiny summary terminal in a quiet field, not a constant typing/noise layer.
-terminal(20.05,20.57,.023,False)
-terminal(21.10,21.44,.020,False)
-terminal(22.16,22.48,.020,False)
-terminal(23.06,23.32,.018,False)
+# Closing text is keyed on its visible reveal frames, including the holds.
+terminal_events(closing_events())
 
 # The closing line draws once. A spacious signature resolves at the quiet brand.
 whoosh(24.69,.24,.012,460,2100,1)
@@ -305,7 +317,7 @@ add(pluck(62,1.6,.020),27.65,.037,-.16,music)
 t=timeline(DURATION)
 duck=np.interp(t,[0,14.96,15.20,16.055,16.18,30],[1,1,.40,.40,1,1])
 music*=duck[:,None]
-master+=music
+master+=music+terminal_bus
 # Restrained stereo echoes belong to tonal notes, not clicks or footsteps.
 for delay,gain in [(.1875,.12),(.375,.085),(.5625,.045),(.75,.030),(1.125,.018)]:
     shift=int(round(delay*SR))
@@ -321,6 +333,16 @@ master*=(fade_in*fade_out)[:,None]
 
 out_path=Path(__file__).resolve().parent.parent/'work'/'soundtrack-director.wav'
 out_path.parent.mkdir(parents=True,exist_ok=True)
+# Preserve an isolated event stem plus its exact sample/frame correspondence
+# so that synchronization can be checked independently of the musical bed.
+audit_dir=out_path.parent/'audio-sync-v3'
+audit_dir.mkdir(parents=True,exist_ok=True)
+with wave.open(str(audit_dir/'terminal-events.wav'),'wb') as stem:
+    stem.setnchannels(2);stem.setsampwidth(2);stem.setframerate(SR)
+    stem.writeframes(np.rint(np.clip(terminal_bus,-1,1)*32767).astype('<i2').tobytes())
+(audit_dir/'events.json').write_text(json.dumps(dict(
+    fps=24,sample_rate=SR,samples_per_frame=SR//24,
+    event_count=len(terminal_audit),events=terminal_audit),indent=2)+'\n')
 pcm=np.rint(np.clip(master,-1,1)*32767).astype('<i2')
 with wave.open(str(out_path),'wb') as output:
     output.setnchannels(2)
