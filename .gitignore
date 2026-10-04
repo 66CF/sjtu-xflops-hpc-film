@@ -1,0 +1,19 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+.venv/
+/work/
+/output/
+/reference/
+/Coinbase.mp4
+/physics-assets.zip
+
+# Superseded local iterations
+/source/README.txt
+/source/build.py
+/source/make_audio.py
+/source/make_audio_continuous.py
+/source/make_audio_kinetic.py
+/source/make_comparison.py
+/source/render_ascii_film.py
+/source/render_continuous.py
