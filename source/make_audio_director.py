@@ -3,8 +3,9 @@
 
 Synthesized entirely from oscillators and seeded noise; no sampled or reference
 audio is used. Run with Python 3 + NumPy. Output: ../work/soundtrack-director.wav.
-Early accents follow the visible RUN contacts and the chip's rightward exit;
-later cues follow synchronization, grounded jumps and the quiet closing scenes.
+Early accents follow the visible RUN contacts and the worker's folding body;
+cluster cues follow docking, visible link traffic and mechanical rail release.
+Later cues follow synchronization, grounded jumps and the quiet closing scenes.
 Every sound is original.
 """
 
@@ -12,7 +13,7 @@ from pathlib import Path
 import wave
 import json
 import numpy as np
-from terminal_timing import opening_events, second_events, closing_events
+from terminal_timing import opening_events, closing_events
 
 SR = 48_000
 DURATION = 30.0
@@ -23,6 +24,8 @@ master = np.zeros((N, 2), dtype=np.float64)
 music = np.zeros_like(master)
 terminal_bus = np.zeros_like(master)
 terminal_audit = []
+cluster_bus = np.zeros_like(master)
+cluster_audit = []
 
 
 def timeline(seconds):
@@ -185,17 +188,6 @@ closure=(.48*np.sin(2*np.pi*330*u)+filtered_noise(.15,500,2450)*.17)
 closure*=np.exp(-u/.025)*(1-np.exp(-u/.002))*np.clip((.15-u)/.035,0,1)
 add(closure,6.30,.036,-.06)
 add(pluck(77,.40,.05),6.33,.035,-.08,music)
-# The delayed right channel ends at 7.70 s as the die clears the right edge.
-whoosh(7.38, .289, .044, 320, 3200, 1)
-add(pluck(74, .30, .08), 7.633, .049, .28, music)
-whoosh(8.22, .50, .056, 180, 3100, -1)
-soft_impact(8.47, .18)
-for j, note in enumerate([62, 69, 77]):
-    add(pluck(note, .68, .17), 8.47 + j * .065, .079 - j * .01, -.4 + j * .4, music)
-whoosh(9.24, .32, .049, 450, 3550, 1)
-terminal_events(second_events(),.031)
-
-
 # Detail sounds are deliberately short and sparse; no continuous sci-fi siren.
 def data_tick(when, gain=.042, note=76, pan=0):
     seconds=.075
@@ -223,24 +215,116 @@ def landing_contact(when, note, pan):
     add(pluck(note+7,.18,.02),when+.073,.020,-pan*.4,music)
 
 
+def cluster_cue(signal, when, name, gain, pan=0.):
+    # A continuous animation cue first becomes visible on this video frame.
+    frame=int(np.ceil(when*24-1e-7));stamp=frame/24
+    add(signal,stamp,gain,pan,cluster_bus)
+    cluster_audit.append(dict(name=name,source_time=when,frame=frame,time=stamp,
+                              audio_sample=frame*2000,duration_samples=len(signal),
+                              pan=pan,gain=gain))
+
+
+def docking_latch(when,pan):
+    u=timeline(.14)
+    # A small sprung latch: rounded contact followed by a short metal answer.
+    body=.66*np.sin(2*np.pi*355*u)+.17*np.sin(2*np.pi*815*u)
+    body+=filtered_noise(.14,680,2200)*.12
+    env=(1-np.exp(-u/.0014))*np.exp(-u/.019)
+    cluster_cue(body*env,when,'slot_lock',.053,pan)
+
+
+def network_ping(when,pan,note):
+    u=timeline(.16)
+    f=midi(note)
+    # Clean pitched packets distinguish network traffic from keyboard clicks.
+    body=np.sin(2*np.pi*f*u+.11*np.sin(2*np.pi*2*f*u)*np.exp(-u*40))
+    body+=.12*np.sin(2*np.pi*3*f*u)*np.exp(-u*32)
+    env=(1-np.exp(-u/.0035))*np.exp(-u/.031)*np.clip((.16-u)/.04,0,1)
+    cluster_cue(body*env,when,'network_packet',.043,pan)
+
+
+def rail_slide(when,seconds,pan):
+    u=timeline(seconds)
+    # Close dry friction with shallow rail teeth, not a passing wind effect.
+    body=filtered_noise(seconds,410,1680)*(.44+.11*np.sin(2*np.pi*22*u))
+    body+=.20*np.sin(2*np.pi*175*u)
+    env=np.minimum(1,u/.045)*np.clip((seconds-u)/.09,0,1)
+    cluster_cue(body*env,when,'support_rail',.019,pan)
+
+
+def tray_foot_contact(when,pan):
+    u=timeline(.09)
+    body=.57*np.sin(2*np.pi*270*u)+filtered_noise(.09,470,2400)*.19
+    env=(1-np.exp(-u/.0013))*np.exp(-u/.017)
+    cluster_cue(body*env,when,'tray_foot',.037,pan)
+
+
 # Character stride: a 0.6s left/right cycle, so contacts occur about every 0.3s.
 for j,when in enumerate([4.80,5.10,5.40,5.70,6.00]):
     light_step(when,.034,-.14 if j%2==0 else .14)
 
-# Selection, source edit, and the six-way fork form one short readable gesture.
-data_tick(10.90,.048,72,-.18)
-data_tick(11.30,.055,79,.14)
-for j,note in enumerate([62,65,69,74,77,81]):
-    data_tick(11.40+j*.046,.040-j*.002,note,-.65+j*.26)
-# Pull back to reveal the 24-worker quilt: a single low-energy wide expansion.
-whoosh(12.52,.36,.020,300,2450,-1)
-add(pluck(69,.48,.055),12.70,.061,-.27,music)
-add(pluck(74,.48,.055),12.725,.045,.27,music)
+# Docking, visible interconnect traffic and the rack-to-worker handoff share
+# an event timeline with cluster_scene. These are material contacts and tonal
+# packets, never the deleted terminal keystrokes or annular burst sounds.
+import cluster_scene as cluster
 
-# Six asynchronous arrivals become one brief synchronized response.
-# No rolls between these taps: the gaps are part of the waiting sensation.
-for j,when in enumerate([15.20,15.37,15.55,15.73,15.90,16.05]):
-    data_tick(when,.041,[69,72,74,76,77,79][j],-.58+j*.232)
+# The latch settles into the same on-screen socket as the visible processor.
+lock_position=cluster.node_state(cluster.PRIMARY,cluster.DOCK_TIME,False)['center']
+lock_pan=float(np.clip((lock_position[0]-960)/1100,-.72,.72))
+docking_latch(cluster.DOCK_TIME,lock_pan)
+
+# Each candidate is a visible packet crossing the midpoint of a real cable.
+# Match draw_network's .77 cycles/s and two packet phases (0 and .48). Choose
+# sparse crossings from that flow; never sound a node that is still offscreen.
+packet_candidates=[]
+for source,target,_ in cluster._network_paths(cluster.NETWORK_TIME):
+    if cluster.MISSING_RANK in (source,target):continue
+    delay=cluster.activation_time(target)
+    for packet in range(2):
+        for cycle in range(3):
+            when=delay+(cycle+.5-packet*.48)/.77
+            if not cluster.DOCK_TIME+.10<when<cluster.DEPLOY_TIME-.06:continue
+            stamp=np.ceil(when*24-1e-7)/24
+            path=next(path for a,b,path in cluster._network_paths(stamp)
+                      if (a,b)==(source,target))
+            length=np.linalg.norm(np.diff(path,axis=0),axis=1).sum()
+            phase=((stamp-delay)*.77+packet*.48)%1
+            point=cluster._polyline(path,np.array([phase*length]))[0]
+            if not (150<point[0]<1770 and 90<point[1]<990):continue
+            packet_candidates.append(dict(time=when,source=source,target=target,packet=packet,
+                                          screen_xy=point.tolist(),pan=float(np.clip((point[0]-960)/1100,-.72,.72))))
+used=set()
+for j,wanted in enumerate([8.72,8.90,9.15,9.42,9.70,10.0,10.36,10.78,11.20,11.64,12.0]):
+    options=[(k,event) for k,event in enumerate(packet_candidates)
+             if k not in used and wanted<=event['time']<=wanted+.16]
+    if not options:continue
+    desired_pan=(-.42 if j%2 else .42)
+    k,event=min(options,key=lambda pair:abs(pair[1]['pan']-desired_pan)+.8*(pair[1]['time']-wanted))
+    used.add(k)
+    network_ping(event['time'],event['pan'],[74,77,69,72,65,74,77,69,72,74,69][j])
+    cluster_audit[-1].update(source_node=event['source'],target_node=event['target'],
+                             packet=event['packet'],screen_xy=event['screen_xy'])
+
+# The established cluster resolves into a quiet chord instead of a scene cut.
+cluster_cue(pad([53,57,62,65],1.60),cluster.NETWORK_TIME,'network_online',.086,0.)
+
+# The guides visibly withdraw while the tray remains. Their dry friction stays
+# close to the assembly, then shoes contact the retained platform and step off.
+rail_slide(cluster.DEPLOY_TIME,.84,-.48)
+rail_slide(cluster.DEPLOY_TIME+.085,.84,.48)
+tray_foot_contact(cluster.FOOT_CONTACT_TIME,-.21)
+tray_foot_contact(cluster.FOOT_CONTACT_TIME+1/24,.21)
+tray_foot_contact(cluster.RUN_TIME+.06,-.17)
+tray_foot_contact(cluster.RUN_TIME+.26,.17)
+
+
+# Rank 23's empty socket persists. Its arrival and unfolding now cause the
+# collective to complete; the sounds follow those contacts in the picture.
+rail_slide(cluster.LATE_ENTRY+.12,.66,.65)
+docking_latch(cluster.LATE_DOCK,.61)
+tray_foot_contact(cluster.LATE_UNFOLD,.61)
+for j,when in enumerate([14.76,15.08,15.68,15.90]):
+    data_tick(when,.041,[69,72,74,76][j],.42)
 data_tick(16.12,.059,72,0)
 for j,note in enumerate([65,69,72]):
     add(pluck(note,.36,.045),16.12,.063,-.24+j*.24,music)
@@ -294,12 +378,16 @@ for beat in range(29):
     if 15.0<=when<16.30:continue
     if when>=17.0 and beat%2:continue
     strength=.37 if when<11 else .35
+    if 7.5<=when<12.2:strength=.15
+    elif 12.2<=when<14:strength=.21
     if when>=16:strength=.20
     add(k,when,strength)
     if beat%2 and when<15:
-        add(s,when,.08 if when<11 else .067,.06)
+        gain=.036 if 7.5<=when<14 else (.08 if when<11 else .067)
+        add(s,when,gain,.06)
     if when<15:
-        add(hat(),when+.25,.030 if when<10.7 else .019,-.2 if beat%2 else .2)
+        gain=.014 if 7.5<=when<14 else (.030 if when<10.7 else .019)
+        add(hat(),when+.25,gain,-.2 if beat%2 else .2)
 
 # Closing text is keyed on its visible reveal frames, including the holds.
 terminal_events(closing_events())
@@ -317,7 +405,12 @@ add(pluck(62,1.6,.020),27.65,.037,-.16,music)
 t=timeline(DURATION)
 duck=np.interp(t,[0,14.96,15.20,16.055,16.18,30],[1,1,.40,.40,1,1])
 music*=duck[:,None]
-master+=music+terminal_bus
+# Make the physical contacts and clean link pings legible without louder effects.
+# Full scoring returns before the original rank barrier sequence at 15 seconds.
+cluster_space=np.interp(t,[0,7.5,8.5,12.0,12.4,14.0,15.0,30],
+                         [1,1,.60,.60,.72,1,1,1])
+music*=cluster_space[:,None]
+master+=music+terminal_bus+cluster_bus
 # Restrained stereo echoes belong to tonal notes, not clicks or footsteps.
 for delay,gain in [(.1875,.12),(.375,.085),(.5625,.045),(.75,.030),(1.125,.018)]:
     shift=int(round(delay*SR))
@@ -335,7 +428,7 @@ out_path=Path(__file__).resolve().parent.parent/'work'/'soundtrack-director.wav'
 out_path.parent.mkdir(parents=True,exist_ok=True)
 # Preserve an isolated event stem plus its exact sample/frame correspondence
 # so that synchronization can be checked independently of the musical bed.
-audit_dir=out_path.parent/'audio-sync-v3'
+audit_dir=out_path.parent/'audio-sync-v5'
 audit_dir.mkdir(parents=True,exist_ok=True)
 with wave.open(str(audit_dir/'terminal-events.wav'),'wb') as stem:
     stem.setnchannels(2);stem.setsampwidth(2);stem.setframerate(SR)
@@ -343,6 +436,11 @@ with wave.open(str(audit_dir/'terminal-events.wav'),'wb') as stem:
 (audit_dir/'events.json').write_text(json.dumps(dict(
     fps=24,sample_rate=SR,samples_per_frame=SR//24,
     event_count=len(terminal_audit),events=terminal_audit),indent=2)+'\n')
+with wave.open(str(audit_dir/'cluster-events.wav'),'wb') as stem:
+    stem.setnchannels(2);stem.setsampwidth(2);stem.setframerate(SR)
+    stem.writeframes(np.rint(np.clip(cluster_bus,-1,1)*32767).astype('<i2').tobytes())
+(audit_dir/'cluster-events.json').write_text(json.dumps(dict(
+    fps=24,sample_rate=SR,event_count=len(cluster_audit),events=cluster_audit),indent=2)+'\n')
 pcm=np.rint(np.clip(master,-1,1)*32767).astype('<i2')
 with wave.open(str(out_path),'wb') as output:
     output.setnchannels(2)

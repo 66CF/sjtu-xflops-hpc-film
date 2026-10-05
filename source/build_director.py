@@ -20,7 +20,7 @@ import wave
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "source"
 WORK = ROOT / "work"
-FINAL = ROOT / "output" / "SJTU_Xflops_Physics_v3.mp4"
+FINAL = ROOT / "output" / "SJTU_Xflops_Cluster_v5.mp4"
 FONT = Path("/System/Library/Fonts/Menlo.ttc")
 
 
@@ -92,9 +92,12 @@ def check_cache(path, position_key, frames, nodes, dimensions, time_start, time_
                 require(metadata.get("actual_silhouette_obstacles") is True and
                         "finite_size_contacts" in metadata,
                         "flow.npz is missing final articulated-collider/contact physics")
-                require(metadata.get("annular_gather",{}).get("enabled") is True and
-                        abs(metadata.get("annular_gather",{}).get("handoff",0)-8.5) < 1e-6,
-                        "flow.npz is missing the final GPU gather handoff at 8.5 s")
+                require(metadata["finite_size_contacts"].get("same_group_only") is False and
+                        "oriented" in metadata["finite_size_contacts"].get("model", ""),
+                        "flow.npz needs actual glyph footprints and cross-group contacts")
+                require(metadata.get("cluster_sequence",{}).get("version") == 5 and
+                        metadata.get("annular_gather",{}).get("enabled") is False,
+                        "flow.npz needs the v5 cluster colliders without the removed annular gather")
             else:
                 source_ids = data["source_ids"]
                 require(source_ids.shape == (nodes,) and source_ids.dtype.kind in "iu" and
@@ -121,19 +124,10 @@ def preflight():
                  "ascii_solids.py", "kinetic_geometry.py", "film_material.py",
                  "opening_impact.py", "chip_choreography.py", "stair_choreography.py",
                  "terminal_timing.py", "glyph_material.py", "hero_choreography.py",
-                 "stair_platforms.py", "ambient_glyphs.py"):
+                 "stair_platforms.py", "ambient_glyphs.py", "cluster_scene.py",
+                 "worker_choreography.py", "label_scramble.py", "glyph_contact_geometry.py"):
         require((SOURCE/name).is_file(), f"Required source file is missing: {SOURCE/name}")
     flow = check_cache(WORK/"physics-v5/flow.npz", "xy", 403, 18479, 2, 3.0, 19.75)
-    check_cache(WORK/"physics-v5/knot.npz", "xyz", None, None, 3, 8.5, 232/24)
-    import numpy as np
-    with np.load(WORK/"physics-v5/flow.npz") as fluid, np.load(WORK/"physics-v5/knot.npz") as knot:
-        source_ids = knot["source_ids"]
-        require(np.array_equal(knot["size"], fluid["size"][source_ids]),
-                "The knot has an older scaled glyph material. Recompute the GPU gather and knot for v3.")
-        handoff = int(np.argmin(abs(fluid["times"]-8.5)))
-        require(np.allclose(knot["xyz"][0,:,:2]+[960,540],
-                            fluid["xy"][handoff,source_ids], atol=.001, rtol=0),
-                "The knot and fluid are from different simulation runs. Recompute the knot.")
     print(f"Baked fluid GPU: {flow.get('gpu','not recorded')}", flush=True)
 
 

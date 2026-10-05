@@ -25,6 +25,7 @@ WIDTH, HEIGHT = 1920, 1080
 FLOW_PATH = ROOT / 'work/physics-v5/flow.npz'
 MENLO = '/System/Library/Fonts/Menlo.ttc'
 REMNANT_START = 19.10
+FLOW_HANDOFF = 19.75
 
 
 def _smooth(x):
@@ -117,6 +118,9 @@ def word_field_state(t):
 
 def _sample(data, t, key):
     ts = data['times']
+    nearest=int(np.argmin(abs(ts-t)))
+    if abs(float(ts[nearest])-t)<2e-5:
+        return data[key][nearest]
     i = int(np.clip(np.searchsorted(ts, t, side='right')-1, 0, len(ts)-2))
     u = float(np.clip((t-ts[i])/(ts[i+1]-ts[i]), 0., 1.))
     return data[key][i]*(1.-u)+data[key][i+1]*u
@@ -143,11 +147,10 @@ def _remnant_data(path, mtime_ns):
         data = {key: z[key] for key in
                 ('times', 'xy', 'velocity', 'angle', 'size', 'glyph',
                  'group', 'birth')}
-    p = _sample(data, REMNANT_START, 'xy').astype(np.float64)
-    v = _sample(data, REMNANT_START, 'velocity').astype(np.float64)
-    angle = _sample(data, REMNANT_START, 'angle').astype(np.float64)
-    angular_velocity = (_sample(data, REMNANT_START+.001, 'angle').astype(np.float64)
-                        - _sample(data, REMNANT_START-.001, 'angle').astype(np.float64))/.002
+    p = _sample(data, FLOW_HANDOFF, 'xy').astype(np.float64)
+    v = _sample(data, FLOW_HANDOFF, 'velocity').astype(np.float64)
+    angle = _sample(data, FLOW_HANDOFF, 'angle').astype(np.float64)
+    angular_velocity = (angle-_sample(data, FLOW_HANDOFF-1/24, 'angle').astype(np.float64))*24
     ids = np.arange(len(p))
     # These same marks are visible in the preceding decimated stair field.
     allowed = ((data['group'] <= 1) & (ids % 4 == 0) & _fixed_visible(data) &
@@ -188,7 +191,7 @@ def _remnant_data(path, mtime_ns):
         drift = direction*(20.+group_index*2.)
         tangent = np.array((-direction[1], direction[0]))
         drift += tangent*(-12.+4.*(group_index%5))
-        life = end_time-REMNANT_START
+        life = end_time-FLOW_HANDOFF
         decay_integral = (1.-math.exp(-7.*life))/7.
         endpoint = center + mean_v*decay_integral + drift*(life-decay_integral)
         needed = max(0., edges[edge]+110.-float(np.dot(endpoint-center, direction)))
@@ -198,11 +201,14 @@ def _remnant_data(path, mtime_ns):
         drifts.extend([drift]*len(chosen))
         cluster_index.extend([group_index]*len(chosen))
     selected = np.asarray(selected, dtype=int)
+    trajectory={key:data[key][:,selected] for key in ('xy','velocity','angle')}
+    trajectory['times']=data['times']
     return dict(ids=selected, xy=p[selected], velocity=v[selected],
                 angle=angle[selected], angular_velocity=angular_velocity[selected],
                 size=data['size'][selected],
                 glyph=data['glyph'][selected], force=np.asarray(forces),
-                drift=np.asarray(drifts), cluster=np.asarray(cluster_index))
+                drift=np.asarray(drifts), cluster=np.asarray(cluster_index),
+                trajectory=trajectory)
 
 
 def _remnants():
@@ -225,7 +231,16 @@ def remnant_state(t):
     data = _remnants()
     if data is None:
         return None
-    dt = t-REMNANT_START
+    alpha=.27+.73*float(_smooth((t-REMNANT_START)/.70))
+    if t<=FLOW_HANDOFF:
+        # While other physical letters remain on screen, keep these IDs in
+        # the same collision-solved trajectory. Changing their forces early
+        # would let them cross the still-visible neighbouring flow bodies.
+        return dict(xy=_sample(data['trajectory'],t,'xy'),size=data['size'],
+                    glyph=data['glyph'],alpha=alpha,
+                    angle=_sample(data['trajectory'],t,'angle'),
+                    ids=data['ids'],cluster=data['cluster'])
+    dt = t-FLOW_HANDOFF
     drag = (1.-math.exp(-7.*dt))/7.
     p = data['xy'] + data['velocity']*drag + data['drift']*(dt-drag)
     p = p + data['force']*(dt**3/6.)
@@ -239,7 +254,6 @@ def remnant_state(t):
     angle = data['angle'] + data['angular_velocity']*(1.-math.exp(-5.*dt))/5.
     # The preceding distant fluid layer prints at .27 contrast. Preserve it
     # exactly at transfer; as the busy stage clears these few marks come forward.
-    alpha=.27+.73*float(_smooth(dt/.70))
     return dict(xy=p, size=data['size'], glyph=data['glyph'], alpha=alpha,
                 angle=angle, ids=data['ids'], cluster=data['cluster'])
 

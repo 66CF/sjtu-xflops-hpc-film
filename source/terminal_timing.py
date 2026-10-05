@@ -193,5 +193,18 @@ def closing_events():
                       ('Open',22.8),('HPC / AI INFRA',23.35)]:
         events.extend(typed_events(text,born,35,gain=.019))
     events.extend(typed_events('The next breakthrough starts here.',24.8,40,gain=.013))
-    events.extend(typed_events('SJTU Xflops',27.65,24,gain=.018))
+    # The final reverse-video signature now decodes at fixed character anchors.
+    # Sound each visible change of its actual cell state, rather than the old
+    # growing centered prefix that slid already-readable letters sideways.
+    from label_scramble import label_state
+    previous=()
+    for frame in range(math.ceil(27.65*FPS),math.ceil((27.65+.458)*FPS)+1):
+        state=label_state('SJTU Xflops',(960,528),frame/FPS,27.65,31.,47,reveal=.458)
+        cells=tuple((c['index'],c['char'],c['inverse'],c['rect']) for c in state['cells'])
+        if cells!=previous and cells:
+            changed=sum(i>=len(previous) or cell!=previous[i] for i,cell in enumerate(cells))
+            events.append(dict(frame=frame,time=frame/FPS,scene='closing',kind='key',
+                               text=''.join(c['char'] for c in state['cells']),rows=[],
+                               characters=changed,gain=.015))
+        previous=cells
     return tuple(sorted(events,key=lambda event:event['frame']))

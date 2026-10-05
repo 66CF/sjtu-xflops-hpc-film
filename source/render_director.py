@@ -13,7 +13,6 @@ W,H,FPS,DURATION=1920,1080,24,30
 curve,smooth,mix=old.curve,old.smooth,old.mix
 MONO='/System/Library/Fonts/Menlo.ttc'
 PHYSICS=None
-KNOT=None
 
 def physical_flow(im,t,opacity=1.,decimate=1,exclude_ids=None):
     global PHYSICS
@@ -24,10 +23,16 @@ def physical_flow(im,t,opacity=1.,decimate=1,exclude_ids=None):
         z=np.load(found);PHYSICS={k:z[k] for k in z.files};z.close()
     data=PHYSICS;times=data['times']
     if t<times[0] or t>times[-1]+.005:return False
-    i=int(np.clip(np.searchsorted(times,t,side='right')-1,0,len(times)-2));u=float(np.clip((t-times[i])/(times[i+1]-times[i]),0,1))
-    xy=mix(data['xy'][i],data['xy'][i+1],u)
-    velocity=mix(data['velocity'][i],data['velocity'][i+1],u)
-    angle=mix(data['angle'][i],data['angle'][i+1],u)
+    nearest=int(np.argmin(abs(times-t)))
+    if abs(float(times[nearest])-t)<2e-5:
+        # Float32 cache timestamps have sub-microsecond rounding error. A
+        # rendered 24fps frame must use its audited state exactly, including
+        # integer glyph placement and four-degree rotation quantization.
+        xy=data['xy'][nearest];angle=data['angle'][nearest]
+    else:
+        i=int(np.clip(np.searchsorted(times,t,side='right')-1,0,len(times)-2));u=float(np.clip((t-times[i])/(times[i+1]-times[i]),0,1))
+        xy=mix(data['xy'][i],data['xy'][i+1],u)
+        angle=mix(data['angle'][i],data['angle'][i+1],u)
     # Cache samples interpolate an integrated simulation, never design targets.
     group=data['group'];ids=np.arange(len(group));size=data['size'].copy()
     birth=data.get('birth',np.where(group==3,data['release']-.025,0.))
@@ -39,7 +44,7 @@ def physical_flow(im,t,opacity=1.,decimate=1,exclude_ids=None):
         aa[exclusion_ids(t)]=0
     # The camera's attention shifts to the worker grid after the terminal.
     # Distance is expressed through contrast, never a change of font or size.
-    rear=float(smooth((t-10.6)/.65))
+    rear=float(smooth((t-8.55)/1.65))
     aa*=np.where(group<3,1-.73*rear,1.)
     # A moving letter keeps its original size and Menlo Bold face. Release,
     # scene boundaries and obstacle contact never change its printed identity.
@@ -47,9 +52,8 @@ def physical_flow(im,t,opacity=1.,decimate=1,exclude_ids=None):
     # recede visually. Their integrated collision/wake motion is unchanged.
     focus=float(smooth((t-17.22)/.42))
     aa*=np.where(group==3,1-.48*focus,1.)
-    blur=(np.linalg.norm(velocity,axis=1)>420)&(aa>.01)
-    if blur.any():
-        batch(im,xy[blur]-velocity[blur]/120,size[blur],data['glyph'][blur],aa[blur]*.15,angle[blur],bold=True)
+    # One printed body per simulated glyph. A second exposure copy would
+    # visually penetrate neighbours even when the physical bodies separate.
     batch(im,xy,size,data['glyph'],aa,angle,bold=True)
     return True
 
@@ -74,7 +78,7 @@ def batch(im,xy,size,glyph,alpha=1.,angle=None,depth=None,bold=True):
     sz=np.clip(np.rint(sz),7,84).astype(int);ang=(np.rint(ang/4)*4).astype(int)%360;v=np.clip(aa*255,0,255).astype(int)
     for j in keep:
         sp=tile(str(codes[j]),int(sz[j]),int(ang[j]),False,bold)
-        im.paste(int(v[j]),(round(xy[j,0]-sp.width/2),round(xy[j,1]-sp.height/2)),sp)
+        im.paste(int(v[j]),(round(float(xy[j,0])-sp.width/2),round(float(xy[j,1])-sp.height/2)),sp)
 
 def text(im,txt,xy,size=30,fill=255,anchor='la',bold=True):
     ImageDraw.Draw(im).text(xy,txt,font=face(size,bold),fill=int(fill),anchor=anchor)
@@ -93,9 +97,9 @@ def label(im,txt,xy,size=29,alpha=1.):
     im.paste(sp,(round(xy[0]-w/2),round(xy[1]-h/2)),mask)
 
 def timed_label(im,txt,xy,t,start,end,size=29):
-    if start<t<end:
-        a=float(smooth((t-start)/.10)*(1-smooth((t-end+.12)/.12)))
-        label(im,txt,xy,size,a)
+    from label_scramble import draw_label
+    draw_label(im,txt,xy,t,start,end,size=size,font=face,
+               reveal=min(.458,(end-start)*.42))
 
 def solid(im,state,center=(960,540),canvas=(950,950),cell=20,alpha=1.):
     """Print lighting as type density, not a translucent wire-frame."""
@@ -130,82 +134,11 @@ def solid(im,state,center=(960,540),canvas=(950,950),cell=20,alpha=1.):
             else:im.paste(block,(x0+ix*cw,y0+iy*ch))
         else:im.paste(round(255*alpha),(x0+ix*cw+(cw-sp.width)//2,y0+iy*ch+(ch-sp.height)//2),sp)
 
-# A designed stream material: intact repeated symbol phrases, sparse lanes,
-# and deep blue cavities. No all-purpose random particle wallpaper.
-U,V=np.meshgrid(np.arange(-1600,1600,20.),np.arange(-950,950,30.))
-U=U.ravel();V=V.ravel();IDS=np.arange(len(U));ROW=IDS//160;COL=IDS%160
-PATTERNS=[list('.....-----+++++<<0001100>>+++***##'),
-          list('________//0011//////<<<<>>>+'),
-          list('01XX**##>>><<===+++....'),
-          list('/////1/////0/////1/////0/')]
-
-def stream(im,t,phase='run',opacity=1.):
-    speed=curve(t,[(4.4,180),(4.75,950),(5.1,360),(6.17,460),(6.6,630),(7.6,570),(8.0,950)])
-    # Per-row advection bends along a wave. The character identity belongs to
-    # its material lane, while patches repeat coherently along that lane.
-    travel=(t-4.4)*410+90*math.sin((t-4.4)*2)
-    x=(U-travel+1600)%3200-1600
-    y=V.copy()
-    wave=45*np.sin(x*.004+y*.005+t*.8)+24*np.cos(x*.008-y*.004-t)
-    yy=y+wave
-    scale=1+.16*np.sin(x*.002+y*.003+t*.4)
-    xx=x*scale+960;yy=yy*scale+540
-    angles=6*np.cos(x*.004+y*.005+t*.8)
-    g=np.empty(len(x),dtype='<U1')
-    for lane,p in enumerate(PATTERNS):
-        choose=ROW%4==lane;a=np.array(p)
-        g[choose]=a[(COL[choose]+ROW[choose]*3)%len(p)]
-    alpha=np.ones(len(x))*.94*opacity
-    sizes=np.full(len(x),26.)*scale
-    if phase=='run':
-        # Horizontally streaked background and a receding ground plane make
-        # the runner's direction and contact with a surface legible.
-        cx=curve(t,[(4.4,2200),(4.75,1570),(5.05,1100),(5.3,890),(6.17,860)])
-        hole=((xx-cx)/410)**2+((yy-570)/430)**2
-        alpha*=smooth((hole-.62)/.4)
-        alpha*=np.where((ROW%9<4)|((COL+ROW*3)%43<15),1.,.025)
-        # The back rows remain level; the floor is made of perspectival lines.
-        ground=yy>840
-        angles[ground]=18+12*np.sin(xx[ground]*.001)
-        g[ground]=np.array(list('/01_'))[(COL[ground]+ROW[ground])%4]
-    elif phase=='chip':
-        dx=(xx-390)/1.48;dy=yy-540;r=np.hypot(dx,dy)+.1
-        th=np.arctan2(dy,dx)+.12*np.sin(r*.004+t)
-        nr=np.sqrt(r*r+345**2)
-        xx=390+1.48*nr*np.cos(th);yy=540+nr*np.sin(th)
-        alpha*=np.where((ROW%12<8)|((COL+3*ROW)%36<15),1.,.15)
-        sizes*=.9
-        # Three coarse foreground fragments peel away from the tiny backdrop.
-        patch=((COL+ROW*2)%52<7)&(ROW%18<5)
-        sizes[patch]*=1.7;g[patch]=np.array(list('10X+'))[ROW[patch]%4]
-    else:
-        # A coherent slash sheet tilts through the camera and gathers tightly.
-        a=-.50;dx=xx-960;dy=yy-540
-        xx=960+dx*math.cos(a)-dy*math.sin(a);yy=540+dx*math.sin(a)+dy*math.cos(a)
-        g=np.array(PATTERNS[3])[IDS%len(PATTERNS[3])];angles+=28
-        dx=xx-960;dy=(yy-540)*1.15;r=np.hypot(dx,dy)+.1
-        radius=curve(t,[(7.63,0),(7.95,180),(8.15,255),(8.47,170)])
-        rr=np.sqrt(r*r+radius*radius)
-        gather=float(smooth((t-8.18)/.28))
-        rr=mix(rr,220+90*np.tanh((r-500)/800),gather)
-        th=np.arctan2(dy,dx)+.32*gather+.18*np.sin(r*.004+t)*gather
-        xx=960+rr*np.cos(th);yy=540+rr*np.sin(th)/1.15
-        alpha*=mix(1.,np.where(IDS%3==0,1.,0),gather)
-        sizes*=mix(1.,.8,gather)
-    batch(im,np.column_stack((xx,yy)),sizes,g,alpha,angles)
-
 def hero_worker(im,t):
     from hero_choreography import hero_state,sample_hero
     path=hero_state(t)
     solid(im,sample_hero(t),(path['x'],path['y']),
           (path['width'],path['height']),cell=path['cell'])
-
-def chip(im,t):
-    from ascii_solids import sample_chip
-    from chip_choreography import chip_state
-    path=chip_state(t);diameter=path['height']
-    state=sample_chip(t,rotation=path['rotation'],resolution=(100,100))
-    solid(im,state,(path['x'],path['y']),(diameter,diameter),cell=max(12,round(diameter/26)))
 
 def opening_impact(im,t):
     from opening_impact import impact_state
@@ -220,150 +153,31 @@ def opening_impact(im,t):
     mask=mask.rotate(rotation,Image.Resampling.BICUBIC,expand=True)
     x,y=state['center'];im.paste(plaque,(round(x-plaque.width/2),round(y-plaque.height/2)),mask)
 
-def load_knot():
-    global KNOT
-    if KNOT is None:
-        path=ROOT/'work/physics-v5/knot.npz'
-        if path.exists():
-            z=np.load(path);KNOT={k:z[k] for k in z.files};z.close()
-    return KNOT
-
-def data_knot(im,t):
-    load_knot()
-    if KNOT is not None:
-        ts=KNOT['times'];i=int(np.clip(np.searchsorted(ts,t)-1,0,len(ts)-2))
-        u=float(np.clip((t-ts[i])/(ts[i+1]-ts[i]),0,1))
-        p=mix(KNOT['xyz'][i],KNOT['xyz'][i+1],u)
-        vel=mix(KNOT['velocity'][i],KNOT['velocity'][i+1],u)
-        ang=mix(KNOT['angle'][i],KNOT['angle'][i+1],u)
-        fac=1200/(1200+p[:,2]);xy=np.column_stack((960+p[:,0]*fac,540+p[:,1]*fac))
-        continuous='source_ids' in KNOT
-        alpha=1. if continuous else float(smooth((t-8.39)/.14))
-        depthfade=.70+.30*np.clip((320-p[:,2])/600,0,1)
-        if continuous:
-            # All nodes are the exact printed glyphs captured by the fluid.
-            # Keep brightness/size at handoff, then depth changes naturally.
-            depthfade=1-.30*np.clip(p[:,2]/600,0,1)
-            rate=-1200*vel[:,2]/(1200+p[:,2])**2
-            screen_v=vel[:,:2]*fac[:,None]+p[:,:2]*rate[:,None]
-            blur=np.linalg.norm(screen_v,axis=1)>420
-            batch(im,xy[blur]-screen_v[blur]/120,KNOT['size'][blur],KNOT['glyph'][blur],depthfade[blur]*.15,ang[blur],p[blur,2],bold=True)
-            batch(im,xy,KNOT['size'],KNOT['glyph'],depthfade,ang,p[:,2],bold=True)
-        else:
-            ids=np.arange(len(p));keep=(ids%3==0)|(ids%17==0)
-            batch(im,xy[keep],KNOT['size'][keep]*fac[keep]*.92,KNOT['glyph'][keep],alpha*depthfade[keep],ang[keep],p[keep,2],bold=False)
-        return
-    # Irregular rotating type sculpture. No longitude/latitude wire grid.
-    from kinetic_geometry import _rotation
-    n=680;i=np.arange(n);u=i*2.399963;v=np.arccos(1-2*(i+.5)/n);tau=t-8.44
-    r=1+.23*np.sin(3*u+4*v+tau*3)+.12*np.cos(7*v-tau*2)
-    p=np.column_stack((np.cos(u)*np.sin(v),np.cos(v),np.sin(u)*np.sin(v)))*r[:,None]
-    R=_rotation((.45+tau*1.6,tau*2.6,tau*.5));p=np.einsum('ij,kj->ik',p,R)
-    burst=max(0,t-9.3);p*=1+burst*burst*27;p[:,1]-=burst*burst*16
-    depth=p[:,2]+4.3;fac=4.3/np.maximum(depth,.8)
-    scale=curve(t,[(8.40,190),(8.58,255),(9.05,240),(9.30,270),(9.65,380)])
-    xy=np.column_stack((960+p[:,0]*scale*fac,535+p[:,1]*scale*fac))
-    vis=smooth((t-8.4)/.15)*(1-smooth(burst/.36))
-    letters=np.array(list('0123456789<>+*'))[i%14]
-    sizes=(18+24*((i%9)/8)**2)*fac
-    aa=(.45+.55*np.clip((1.5-p[:,2])/2,0,1))*vis
-    batch(im,xy,sizes,letters,aa,u*180/math.pi+t*40,depth)
-    # One clean, oblique word orbit forms the silhouette's readable outer edge.
-    txt='ALL_REDUCE//01/TENSOR_PARALLEL//10/'*4
-    j=np.arange(len(txt));theta=j/len(txt)*math.tau+tau*2
-    q=np.column_stack((1.45*np.cos(theta),.08*np.sin(theta*3),1.45*np.sin(theta)))
-    q=np.einsum('ij,kj->ik',q,_rotation((.75,.2,tau*.3)))
-    f=4.3/(q[:,2]+4.3)
-    xy=np.column_stack((960+q[:,0]*scale*f,535+q[:,1]*scale*f-burst*burst*3700))
-    batch(im,xy,22*f,np.array(list(txt)),vis*.9,18*np.cos(theta),q[:,2])
-
-def command_fork(im,t):
-    if t<10.55:
-        old.terminal(im,t,True)
-    else:
-        # Terminal rows are lifted away, leaving one actionable command.
-        alpha=1-float(smooth((t-10.55)/.45))
-        if alpha>0:
-            layer=Image.new('L',(W,H));old.terminal(layer,t,True)
-            im.paste(layer,(0,-round(smooth((t-10.55)/.45)*250)),layer.point(lambda v:round(v*alpha)))
-    if 10.6<t<12.1:
-        prefix='$ mpirun -np ';suffix=' ./next_breakthrough'
-        count='1' if t<11.30 else '6';f=face(33)
-        total=f.getlength(prefix+count+suffix);x=(W-total)/2;y=430
-        a=float(smooth((t-10.6)/.15)*(1-smooth((t-11.8)/.30)))
-        text(im,prefix,(x,y),33,255*a)
-        xx=x+f.getlength(prefix)
-        if t>10.94:label(im,count,(xx+f.getlength(count)/2,y+17),33,a)
-        else:text(im,count,(xx,y),33,255*a)
-        text(im,suffix,(xx+f.getlength(count),y),33,255*a)
-
-def word_weave(im,t,opacity):
-    # Language becomes material for one specific shot, then clears completely.
-    size=22;advance=13.5;phrase='PARALLEL>   ';period=len(phrase)*advance
-    for row in range(37):
-        y=8+row*30
-        drift=((t-12)*105+row*27)%period
-        for col in range(-1,14):
-            x=col*period-drift
-            band=.9 if row%5<3 else .45
-            text(im,phrase,(x,y),size,round(255*opacity*band))
-
 def workers(im,t):
     from ascii_solids import sample_worker
-    # A single process forks to six, then camera pullback reveals a 4x6 quilt.
-    zoom=curve(t,[(11.0,1),(11.65,1),(12.3,.70),(13.1,.51),(14.0,.46),(15.8,.46),(16.7,.46),(17.4,.46)])
-    opening=float(smooth((t-11.15)/.7))
-    reveal=float(smooth((t-12.25)/.85))
-    weave_op=curve(t,[(11,0),(12,.05),(12.7,.30),(13.4,.20),(15,.13),(16.6,.05),(17.2,0)])
-    if PHYSICS is None:word_weave(im,t,weave_op)
-    # Local phases remain distinct while arrival times converge at a barrier.
-    columns,rows=6,4;arrivals=[]
-    for row in range(rows):
-        for col in range(columns):
-            idx=row*columns+col
-            if idx==18 and t>=17.05:continue
-            if row>0 and reveal<=0:continue
-            birth=11.05+col*.07 if row==0 else 12.25+(row-1)*.13+col*.025
-            opacity=float(smooth((t-birth)/.28))
-            if idx!=18:opacity*=1-float(smooth((t-(16.61+idx*.009))/.24))
-            if opacity<=0:continue
-            rawx=(col-2.5)*580;rawy=(row-1.5)*505
-            x=960+rawx*zoom*opening
-            y=535+rawy*zoom*(.50+.50*reveal)
-            settle=16.12 if idx==23 else 14.65+(idx%6)*.10+(idx//6)*.055
-            arrivals.append(settle)
-            run_t=t+.063*idx
-            if t>settle:run_t=settle+.063*idx+math.sin((t-settle)*9)*.026
-            # A small lateral stride finishes at each worker's local sync line.
-            step=curve(t,[(birth,-110),(birth+.4,0),(14.6,0),(settle,32),(17.2,32)]) if settle>birth+.4 else 0
-            x+=step*zoom
-            if idx==23 and t>14.1:
-                x+=curve(t,[(14.1,530),(14.8,505),(15.2,400),(15.65,175),(16.12,0),(17.2,0)])
-            h=620*zoom
-            state=sample_worker(run_t,rotation=(0,.60,.0),resolution=(64,74))
-            solid(im,state,(x,y),(h*64/74,h),cell=max(9,round(19*zoom)),alpha=opacity)
-            # Independent input tape is visibly consumed by each active core.
-            baseline=y+h*.34
-            for k in range(11):
-                dx=((k*24-(t-birth)*130)%264)-170
-                if t>=settle and k>3:continue
-                batch(im,np.array([[x+dx*zoom,baseline+24*zoom]]),max(10,20*zoom),'01'[k%2],opacity*.75)
-            text(im,'________',(x-95*zoom,baseline+22*zoom),max(10,23*zoom),round(opacity*240))
-            if t>16.15:
-                flash=float(smooth((t-16.15)/.08)*(1-smooth((t-16.48)/.12)))
-                if flash>0:label(im,'X',(x,y-h*.055),max(10,round(35*zoom)),flash)
-    timed_label(im,'WAITING FOR RANK 23_',(960,535),t,15.0,16.10,42)
-    timed_label(im,'ALL_REDUCE: READY',(960,535),t,16.14,17.0,42)
-    if t>16.18 and PHYSICS is None:
-        # Output leaves the workers along curved tributaries, joining one
-        # stream underneath them. They produce the next scene's stepping path.
-        a=float(smooth((t-16.18)/.32))
-        for branch in range(6):
-            j=np.arange(75);s=((j/75+(t-16.18)*.80)%1)
-            x0=300+branch*264
-            xx=(1-s)**2*x0+2*(1-s)*s*960+s*s*1710
-            yy=(1-s)**2*740+2*(1-s)*s*1020+s*s*800
-            batch(im,np.column_stack((xx,yy)),18,np.array(list('01_+'))[j%4],a*.95)
+    from worker_choreography import worker_state
+    from cluster_scene import draw_trays,draw_missing_rank,draw_late_rank
+    draw_trays(im,t,batch)
+    draw_missing_rank(im,t,text)
+    draw_late_rank(im,t,solid)
+    for idx in range(24):
+        path=worker_state(idx,t)
+        if not path['visible']:continue
+        x,y,h=path['x'],path['y'],path['height']
+        opacity=path['opacity'];zoom=path['zoom']
+        state=sample_worker(path['pose'],rotation=path['rotation'],resolution=(64,74))
+        solid(im,state,(x,y),(path['width'],h),cell=path['cell'],alpha=opacity)
+        baseline=y+h*.34
+        for k in range(11):
+            dx=((k*24-(t-11.05-idx%6*.07)*130)%264)-170
+            if t>=path['settle'] and k>3:continue
+            batch(im,np.array([[x+dx*zoom,baseline+24*zoom]]),10,'01'[k%2],opacity*.75)
+        text(im,'________',(x-95*zoom,baseline+22*zoom),11,round(opacity*240))
+        if t>16.15:
+            flash=float(smooth((t-16.15)/.08)*(1-smooth((t-16.48)/.12)))
+            if flash>0:label(im,'X',(x,y-h*.055),16,flash)
+    timed_label(im,'WAITING FOR RANK 23_',(960,535),t,14.30,16.10,42)
+    timed_label(im,'ALL_REDUCE: READY',(960,535),t,16.14,17.20,42)
 
 def takeoff(im,t):
     from stair_choreography import staircase_state,sample_climber
@@ -402,47 +216,36 @@ def ending(im,t):
         s='The next breakthrough starts here.'
         text(im,s[:min(len(s),int((t-24.8)*40))],(960,540),30,anchor='mm')
     elif t>=27.65:
-        s='SJTU Xflops';part=s[:min(len(s),int((t-27.65)*24))]
-        if part:label(im,part,(960,528),47)
+        timed_label(im,'SJTU Xflops',(960,528),t,27.65,31.,47)
         if t>28.4:text(im,'HPC / AI INFRA',(960,595),25,anchor='mm')
 
 def ink_frame(t):
     im=Image.new('L',(W,H))
     from ambient_glyphs import draw_background
-    draw_background(im,t,batch=batch)
+    from cluster_scene import draw_background as cluster_background,draw_cluster
+    # The ending keeps its inherited physical remnants. The old knot's
+    # arriving word sheet is replaced by the cluster's own material current.
+    if t>=19.1:draw_background(im,t,batch=batch)
+    if 7.30<=t<14.0:cluster_background(im,t,batch,text)
     if t<3.03:old.terminal(im,t)
     elif t<4.62:
-        if not physical_flow(im,t):old.blowout(im,t)
+        physical_flow(im,t)
         opening_impact(im,t)
-    elif t<7.80:
-        if not physical_flow(im,t):
-            if t<5.18:old.blowout(im,t)
-            stream(im,t,'run',float(smooth((t-4.60)/.38)))
+    elif t<7.30:
+        physical_flow(im,t)
         hero_worker(im,t)
         timed_label(im,'<<HPC IS...',(1360,725),t,5.22,6.45,29)
-        timed_label(im,'>>FASTER>>',(960,525),t,7.78,8.38,42)
-    elif t<8.5:
-        if not physical_flow(im,t):stream(im,t,'sheet')
-        timed_label(im,'>>FASTER>>',(960,525),t,7.78,8.38,42)
-    elif t<9.67:
-        knot=load_knot()
-        if knot is not None and 'source_ids' in knot:
-            physical_flow(im,t,exclude_ids=knot['source_ids'])
-        elif t<8.75:
-            a=float(1-smooth((t-8.44)/.31))
-            if not physical_flow(im,t,a):stream(im,t,'sheet',a)
-        if t>9.45:old.terminal(im,t,True)
-        data_knot(im,t)
-    elif t<11.0:
-        command_fork(im,t)
-        timed_label(im,'--AI INFRA--',(860,560),t,9.76,10.5,29)
+    elif t<14.0:
+        physical_flow(im,t)
+        draw_cluster(im,t,solid,batch,label,text)
+        timed_label(im,'>>FASTER>>',(620,760),t,7.38,8.58,38)
+        timed_label(im,'AI INFRA',(960,535),t,10.05,12.20,42)
     elif t<17.4:
-        physical_flow(im,t,1.,4)
+        physical_flow(im,t)
         workers(im,t)
-        command_fork(im,t)
         if t>=17.05:takeoff(im,t)
     elif t<19.75:
-        physical_flow(im,t,float(1-smooth((t-19.1)/.65)),4)
+        physical_flow(im,t,float(1-smooth((t-19.1)/.65)))
         takeoff(im,t)
     else:ending(im,t)
     return im

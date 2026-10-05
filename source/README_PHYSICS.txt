@@ -1,234 +1,164 @@
-SJTU XFLOPS — PHYSICS ASCII FILM
+SJTU XFLOPS — CLUSTER CUT V5
 
 DELIVERY
-Final movie: output/SJTU_Xflops_Physics_v3.mp4
-30.000 seconds; 1920 x 1080; 24 fps / 720 video frames
-H.264 video; AAC stereo audio, 48 kHz
-All on-screen copy is English. The soundtrack is original synthesis.
-The supplied Coinbase.mp4 informed art direction and timing; its footage and
-audio are not used in the output and are not needed for a normal rebuild.
+output/SJTU_Xflops_Cluster_v5.mp4
+30.000 seconds, 1920 x 1080, 24 fps / 720 frames.
+H.264 video, AAC 48 kHz stereo; English text and original synthesized audio.
 
-NORMAL REBUILD — USES THE BAKED PHYSICS CACHES
-From the project root:
+V3 CHECKPOINT
+Commit 81e1f568f9c66f18906916e50c3d279ac4693ddd, tag v1.1.0.
+https://github.com/66CF/sjtu-xflops-hpc-film/releases/tag/v1.1.0
+That release contains the exact v3 film, physics-assets-v3.zip and checksums.
+The local duplicate is work/checkpoints/v3/. V3's knot is intentionally not
+part of the v5 story. Use the tagged source with the tagged assets to restore it.
 
+NORMAL V5 REBUILD
     python3 source/build_director.py --check-only
     python3 source/build_director.py
 
-The entry point also works from another working directory. It locates the
-project relative to its own file. Requirements: Python 3, NumPy, Pillow,
-FFmpeg/FFprobe on PATH, and /System/Library/Fonts/Menlo.ttc (macOS Menlo).
-No CUDA GPU is needed to render the already simulated caches.
+Requires Python 3, NumPy, Pillow, FFmpeg/FFprobe and macOS Menlo at
+/System/Library/Fonts/Menlo.ttc. No GPU is needed to render the baked cache.
+The required cache is work/physics-v5/flow.npz. Preflight verifies dimensions,
+finite values, the 120 Hz / 1536 x 432 fluid settings, v5 cluster metadata and
+absence of the removed annular gather. A v3 cache is rejected. The final movie
+is replaced only after resolution, frame count, duration and audio checks pass.
 
-Required final caches:
-    work/physics-v5/flow.npz
-    work/physics-v5/knot.npz
+CONTINUOUS MIDDLE PASSAGE
+7.30 s: the same processor is followed into a rack; position, scale and pose
+match hero_choreography.py at the junction.
+8.56 s: the processor reaches its socket; a collar closes and data links start.
+8.64-10.20 s: a continuous camera pullback reveals 23 existing processors and an empty Rank 23 socket.
+10.05-12.20 s: the AI INFRA tile remains legible while data traffic runs.
+12.20-13.62 s: structural guides withdraw. The same processor faces stay in
+place while arms and legs extend from behind them. Supporting trays remain.
+14.00 s: the same geometry joins worker_choreography.py without an object swap.
+Rank 23 is visibly absent from the rack and worker grid. Its tray remains.
+14.42-15.32 s: the late processor arrives from the right and docks.
+15.32-16.10 s: that same processor unfolds into the missing worker.
+16.12 s: the collective can complete. The existing jumps and ending remain.
+White emphasis labels assemble from inverse character cells and decode before
+a pixel-stable reading hold. label_scramble.py was implemented by the same
+agent that viewed 240 consecutive reference frames and measured the transitions.
 
-Missing, incomplete, incompatible or non-finite caches cause a clear error.
-The build does not substitute physics-qa.npz, older caches, or analytic paths.
-It checks both caches, synthesizes work/soundtrack-director.wav, renders
-work/director-silent.mp4 at full resolution, and muxes the final movie.
-The final file is replaced only after the new movie passes format/duration
-checks. --check-only validates dependencies and caches without changing media.
-The older source/build.py and source/README.txt describe the previous version.
+cluster_scene.py owns the projected camera, solid processors, rack faces,
+retained trays, data paths and shared collider geometry. Network packets follow
+authored cable paths; they are not a claim of simulated network hardware or
+rigid-body dynamics. Processor articulation and camera movement are directed
+curves. Their silhouettes and boundary velocities drive the actual fluid.
 
-WHAT WAS ACTUALLY SIMULATED
+ACTUAL GPU PHYSICS
+The cache was recomputed on an NVIDIA GeForce RTX 4070 Laptop GPU, using
+CuPy 14.2.0 / CUDA. It retains 18,479 source identity slots and 403 samples
+at 24 fps from 3.0 through 19.75 s. The v5 inlet enables 600 medium and
+50 large glyphs; unused inlet IDs are never born and exert no contact mass.
+The 2,899 terminal and 6,980 worker-source glyph identities are preserved. A 1536 x 432 incompressible velocity field
+is integrated at 120 Hz with 3.75 px cells in a padded 5760 x 1620 domain.
 
-1. GPU fluid and moving glyphs
-The final fluid cache was computed on an NVIDIA GeForce RTX 4070 Laptop GPU,
-using CUDA through CuPy 14.2.0. This is a two-dimensional incompressible velocity
-field on a 1536 x 432 grid, integrated at 120 Hz. Grid spacing is 3.75 screen
-pixels, giving a padded 5760 x 1620 pixel physical domain. Its periodic boundary
-lies outside the visible 1920 x 1080 aperture.
+The solver uses RK2 semi-Lagrangian advection, spectral pressure projection,
+viscosity, vorticity confinement, moving-solid Brinkman coupling, signed-distance
+contact normals and iterative oriented glyph-footprint constraints. The same visible RUN, processor,
+rack, worker and step geometry is used for its collision masks, sampled at
+120 Hz to match each physics step. When worker surface glyphs are born, the
+former parent solid stops colliding with them. Terminal glyphs
+remain anchored until contact, neighboring impacts or accumulated fluid drag
+release them. V4 removes the obsolete diagonal jet and annular knot forces.
+A leftward current carries the old field away during the camera's rack reveal.
+Visible gaps below each rack support provide lateral outflow. The collision
+geometry has those same openings; no invisible walls trap glyphs in bays.
 
-The solver uses RK2 semi-Lagrangian velocity advection, viscosity, vorticity
-confinement and a spectral pressure projection. Moving articulated silhouettes
-couple to the field with Brinkman boundary forcing. Actual 3D worker/chip poses
-are projected into collision masks; particle contacts use signed distances,
-surface normals, moving-boundary velocity and sliding friction.
+Physical glyph identities, seed sizes and Menlo Bold face remain stable across
+shots. Camera distance in later shots is expressed through contrast, not a
+font substitution. glyph_material.py provides a single stable visibility sample.
+Free glyphs collide across source groups using measured ink bounds and the
+same four-degree angle rounding as the renderer. Pair constraints add no
+padding to the printed ink; a 2.5 px broad-phase guard catches antialiased
+rotated edges for the exact-raster contact check without adding physical bulk.
+Iterative position constraints resolve contact after fluid advection. In
+nonlinear rack corners, a bounded nearest-feasible-position projection checks
+the exact rotated glyph bitmaps and updates the persistent position, velocity
+and spatial bins at each 120 Hz step. Its displacement statistics are retained
+in recovery_diagnostics. The renderer uses the audited 24 fps states exactly.
+Glyph
+boundaries are open: an outgoing ID does not wrap back into the picture.
+There is one printed copy per simulated body, without ghost-exposure copies.
 
-18,479 glyph tracers have their own velocity, drag response, release time and
-angular response to fluid curl. Finite-radius repulsion (4–8 px radii) and
-damped contacts apply between particles in the same material group. The cache
-contains 403 samples at 24 fps, spanning 3.0–19.75 s. Rendering selects material
-samples and opacity for legibility: 18,479 is the simulated count, not a claim
-that every particle is visible in every frame.
+The blue substrate is exactly RGB (20,31,244) for zero-ink pixels; no film grain,
+vertical streaks, bloom or color separation is applied.
 
-A CUDA gather continuation starts at 8.05 s and applies damped annular
-attraction to the selected visible glyphs through 8.50 s. It preserves their
-identities, velocity and roll and writes gather-handoff.npz for the spring
-knot. The approved later fluid checkpoint resumes at 10 s under the terminal
-shot.
+The closing remnants inherit positions, velocities, size, glyph and angle
+from selected late fluid IDs. They follow the exact contact-solved cache until
+19.75 s, including the interval when neighbouring physical letters remain
+visible. Damped motion and a growing outward force then carry
+individual characters through the frame edges. They are not re-randomized.
 
-2. Three-dimensional elastic data knot
-The knot uses CPU NumPy, not the CUDA fluid solver: unequal-mass glyph nodes
-connected by near-neighbor Hooke/dashpot bonds, integrated at 240 Hz. Its node
-and bond counts follow the visible glyphs in the final GPU handoff and can
-change when the preceding motion is revised; the cache records those counts.
-At 8.50 s it inherits the selected GPU glyphs' identities, positions and
-velocities. The source_ids array records this connection to flow.npz.
-An inertial, torque-driven anchor frame gathers an irregular two-lobed shape.
-Spatially phased rest strain, mass differences and elastic lag keep the knot
-deforming as it rotates. Particle positions are advanced from forces and
-velocities; they are not lerped onto a rotating target shape.
-
-At 9.30 s the bonds/anchors release, and an upward/radial impulse is added to
-the existing velocities. Drag and a weak updraft then carry the glyphs out.
-The cache contains 29 samples at 24 fps covering 8.50–9.6667 s. It includes source
-particle IDs, position, velocity, glyph, size and glyph roll in degrees.
-Coordinates are world pixels with Y down; projection uses a 1200 px camera
-distance.
-
-WHAT REMAINS CHOREOGRAPHED
-The worker/chip geometry is articulated 3D geometry, but its poses, travel,
-camera scale and platform choreography are directed curves, not a general
-rigid-body simulation. These moving bodies supply the fluid collision masks.
-Terminal output, selection/edit timing, independently readable white/blue
-labels, scene composition and the final typography are separately animated.
-The film does not claim that every word or every body is physically simulated.
-
-STORY AND SOUND
-A visible RUN cursor crosses the terminal and pushes its characters into flow;
-a worker and accelerator pass through the field, and the accelerator speeds
-off the right edge before FASTER. A deforming data knot bursts upward. A command changes from
-one process to six, and a camera pullback reveals 24 workers. Most reach the
-barrier while rank 23 arrives last at 16.12 s; the shared X flash follows.
-Surface letters dissolve into flow. The leader lands on three ASCII platforms
-at 17.70, 18.33 and 18.96 s, then runs right along the upper platform. A quiet
-terminal summary leads to the final line
-and the SJTU Xflops / HPC / AI INFRA identity.
-
-make_audio_director.py synthesizes a 30 s, 48 kHz stereo PCM16 soundtrack from
-oscillators and seeded noise. It includes sparse typing, soft flow accents,
-staggered synchronization taps, three landing contacts and a quiet brand cue.
-The reference soundtrack is not sampled. The final mux encodes this WAV to AAC.
-
-V2 MOTION REVISION
-The opening RUN cursor is now the visible cause of the terminal displacement;
-its drawing and collision geometry share opening_impact.py. The previous four
-invisible fan sources are removed. Terminal group 0 releases dynamically from
-cursor contact, its wake and neighboring glyph impulses; still-attached
-terminal glyphs participate in collision. Three quiet contact/friction sounds
-at 3.30, 3.60 and 4.00 s replace the previous broad rush.
-The accelerator has a continuous accelerated exit through the right boundary,
-shared with its collision masks through chip_choreography.py. Its existing
-rightward audio accent is softer and occupies 7.38–7.70 s.
-The stair hero faces screen-right, anticipates each jump, follows a ballistic
-flight, compresses with planted soles on landing and exits along the top
-platform. Drawing and masks share stair_choreography.py; landing audio is
-synchronized to 17.70, 18.33 and 18.96 s. Film duration, output format and the
-403-frame fluid sampling range remain unchanged. Earlier movies are retained.
-
-V3 CONTINUITY AND GRAPHIC REVISION
-The blue substrate is now exactly RGB (20,31,244) at every zero-ink pixel;
-film grain, vertical striation, bloom and color-channel shifts are removed.
-All free physical glyphs keep their seeded size and Menlo Bold face. The
-stable visible subset is shared by rendering and GPU gather in glyph_material.py.
-Knot glyphs inherit the exact raw size and face; perspective moves their
-centres without resizing their printed glyphs.
-
-hero_choreography.py retains one body through the 5.70-6.62 s retraction of
-arms and legs into the processor. The same body continues along the rightward
-exit. Its visible geometry is also exported into the fresh fluid collision bake.
-stair_platforms.py supplies thick top/front/side ASCII faces and matching
-solid collision masks. The steps preserve the original planted-foot heights.
-The WAITING and ALL_REDUCE status tiles are 42px, centred between worker rows.
-
-ambient_glyphs.py adds coherent PARALLEL / COMPUTE / AI_INFRA word columns
-behind the 8 s knot shot, entering from the right and leaving in the updraft.
-A sparse set of existing late fluid IDs continues into the ending under damped
-motion and a growing outward force. They retain position, velocity, size and
-face on transfer, and individual marks leave through the image boundary.
-
-terminal_timing.py is the shared visible-output timeline for opening terminal,
-second terminal and closing text sound events. No independent random typing
-schedule remains. PCM click onsets are aligned to output frame boundaries.
-The reference video and audio are never embedded or sampled.
-
-RECOMPUTE THE KNOT
-This works on the normal NumPy render host:
-
-    python3 source/simulate_type_knot.py
-
-The final work/physics-v5/gather-handoff.npz is required for its initial state;
-preserve it together with flow.npz. The script replaces knot.npz and runs
-finite-value, scale, ongoing-spin, non-rigid-deformation, near-plane and
-departure checks.
-
-RECOMPUTE THE GPU FLUID
-This is separate from the normal build. Use a compatible NVIDIA CUDA host
-with CuPy and its CUDA runtime / NVRTC / cuFFT dependencies installed. The
-production cache records CuPy 14.2.0. This command cannot run on the macOS
-render host without an NVIDIA CUDA execution environment.
-
-The following authored simulation inputs must be preserved:
-    work/physics-v5/input.npz
-    work/physics-v5/obstacles.npz
-    work/physics-v5/solid-masks.npz
-
-input.npz contains seed glyph positions, identities, sizes, groups, births and
-release times. Its preset group-0 release times are ignored by the causal
-opening solver; the output flow.npz release array records the measured release
-times. obstacles.npz contains the obstacle/scroll control track. These are
-required input assets, not regenerated by build_director.py.
-
-To update articulated collision masks after changing body choreography, run
-on the render host and copy the resulting inputs to the CUDA host:
-
-    python3 source/export_physics_geometry.py
-
-From the project root on the CUDA host, first compute the base simulation:
-
-    python3 source/simulate_glyph_fluid.py \
+RECOMPUTE THE COLLISION CACHE AND FLUID
+Preserve the original input.npz and obstacles.npz. Prepare the v5 reservoir
+and exact font footprints on the render host:
+    python3 source/glyph_contact_geometry.py export \
+      --input work/physics-v5/input.npz --output work/physics-v5/glyph-footprints.npz
+    python3 source/prepare_physics_input.py \
       --input work/physics-v5/input.npz \
-      --obstacles work/physics-v5/obstacles.npz \
-      --solid-masks work/physics-v5/solid-masks.npz \
-      --output work/physics-v5/flow-before-gather.npz \
-      --grid 1536 432 --dx 3.75 --hz 120 --fps 24 \
-      --start 3.0 --end 19.75 --viscosity 11
+      --geometry work/physics-v5/glyph-footprints.npz \
+      --output work/physics-v5/input-v5.npz
+Then export the same geometry used in the movie:
+    python3 source/export_physics_geometry.py --fps 120 \
+      --output work/physics-v5/solid-masks-120hz.npz
 
-Then continue the selected existing glyphs through the GPU gather:
-
+On a CUDA/CuPy host, copy simulate_glyph_fluid.py, glyph_material.py,
+opening_impact.py and the NPZ inputs used below, then run:
     python3 source/simulate_glyph_fluid.py \
-      --input work/physics-v5/input.npz \
+      --input work/physics-v5/input-v5.npz \
       --obstacles work/physics-v5/obstacles.npz \
-      --solid-masks work/physics-v5/solid-masks.npz \
-      --gather-reference work/physics-v5/flow-before-gather.npz \
-      --handoff-output work/physics-v5/gather-handoff.npz \
+      --solid-masks work/physics-v5/solid-masks-120hz.npz \
+      --glyph-footprints work/physics-v5/glyph-footprints.npz \
       --output work/physics-v5/flow.npz \
       --grid 1536 432 --dx 3.75 --hz 120 --fps 24 \
       --start 3.0 --end 19.75 --viscosity 11
 
-Preserve the newly computed flow-before-gather.npz as the continuation's input.
-It must contain the same RUN, chip-exit and stair choreography as this version;
-an older baseline is incompatible even if its dimensions match. Copy flow.npz
-and gather-handoff.npz back to the render project. Recompute the knot with
-simulate_type_knot.py, then run the normal build. CUDA versions/hardware can
-produce small floating-point differences;
-the baked caches are the authoritative inputs for reproducing this delivery.
-If body choreography or seed layout changes, update the corresponding mask
-and seed inputs before recomputing. GPU recomputation is never implicit.
+Audit every recorded frame on the macOS render host with the actual font:
+    python3 source/glyph_contact_geometry.py audit \
+      --flow work/physics-v5/flow.npz \
+      --geometry work/physics-v5/glyph-footprints.npz \
+      --output work/physics-v5/contact-audit.json --raster
+
+The raster test counts all nonzero antialiased ink pixels, with exactly the
+same four-degree rotation and integer placement as the film. Oriented ink
+rectangles remain a conservative broad phase; two empty rectangle corners
+touching do not imply that the printed characters intersect.
+
+Do not use --gather-reference or simulate_type_knot.py for v5. Those paths are
+preserved for historical reconstruction only. CUDA versions/hardware may
+produce small floating-point differences; baked caches are authoritative.
+
+SOUND
+make_audio_director.py synthesizes a 30 s, 48 kHz stereo PCM16 WAV. Opening
+and closing keystrokes use terminal_timing.py's actual visible output frames.
+There are no second-terminal, knot absorption, burst or mpirun-edit sounds in
+v5. The new latch, network traffic, guides and foot contacts use cluster_scene.py
+constants. Network pings are aligned with visible packet positions and stereo
+pan follows the packet's screen position. Sound-event audits are written to
+work/audio-sync-v5/. The reference soundtrack is never sampled.
 
 SOURCE MAP
-build_director.py           Strict cache preflight, render, audio and final mux
-render_director.py          Film composition, typography and cached physics playback
-ascii_solids.py             Articulated worker/chip geometry and surface sampling
-film_material.py            Pure blue/white, time-independent color mapping
-simulate_glyph_fluid.py     CUDA fluid, inertial tracers and finite-radius contacts
-export_physics_geometry.py  Projected articulated masks and boundary velocities
-simulate_type_knot.py       240 Hz 3D elastic-knot simulation
-make_audio_director.py      Original synchronized soundtrack synthesis
-render_kinetic.py           Shared terminal/timing utilities used by the director cut
-kinetic_geometry.py         Shared geometry utilities
-opening_impact.py           Shared visible RUN cursor and collision geometry
-chip_choreography.py        Shared accelerator entrance and right-edge exit
-stair_choreography.py       Right-facing jumps, planted soles and grounded exit
+build_director.py           Strict preflight, audio, render and final mux
+render_director.py          Overall shot composition and ASCII printing
+cluster_scene.py            Continuous rack/network/worker deployment stage
+worker_choreography.py       Shared worker positions, poses and barrier timing
+ascii_solids.py              Opaque 3D ray intersections and surface illumination
+hero_choreography.py         Earlier runner-to-chip fold
+export_physics_geometry.py   Shared foreground and rack collision masks
+simulate_glyph_fluid.py      Actual CUDA fluid and glyph dynamics
+glyph_contact_geometry.py    Menlo ink footprint export and collision audit
+analyze_glyph_motion.py      Motion residuals and actual recovery displacement
+prepare_physics_input.py     Finite spaced inlet, preserving source identities
+label_scramble.py            Inverse-cell assembly and fixed-position decode
+terminal_timing.py           Shared visible text/audio event timeline
+make_audio_director.py       Original synchronized audio synthesis
+film_material.py            Flat blue/white color mapping
+glyph_material.py           Stable physical glyph visibility
+stair_choreography.py        Ballistic jumps, planted feet and exit
+stair_platforms.py           Thick ASCII step faces and collider geometry
+ambient_glyphs.py            Sparse persistent closing remnants
 
-Keep the complete source directory and required work/physics-v5 caches and
-inputs together. No external reference-media download is required.
-
-V3 MODULES
-terminal_timing.py          Shared frame events for terminal text and audio
-glyph_material.py           Stable particle visibility, without font changes
-hero_choreography.py         Continuous runner-to-chip retraction and exit
-stair_platforms.py           Thick ASCII faces and shared collision masks
-ambient_glyphs.py            Repeating word field and dwindling closing remnants
+The supplied Coinbase.mp4 was examined directly for art direction. Its footage
+and audio are not embedded, sampled or needed for a normal rebuild.
