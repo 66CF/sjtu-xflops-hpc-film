@@ -2,12 +2,12 @@
 
 30-second, 1920 × 1080, 24 fps promotional film for SJTU Xflops. All on-screen copy is English, with an original synthesized stereo soundtrack.
 
-The current working cut is **v5**, rendered to `output/SJTU_Xflops_Cluster_v5.mp4`. The middle passage follows one chip into a rack, reveals a connected cluster with Rank 23 missing, and unfolds the same processors onto their retained worker trays. The absent rank arrives later to complete the collective. The v3 checkpoint is preserved at tag `v1.1.0`, with its film and exact physics assets in the release.
+The current release is **v5 (v1.2.0)**, rendered to `output/SJTU_Xflops_Cluster_v5.mp4`. The middle passage follows one chip into a rack, reveals a connected cluster with Rank 23 missing, and unfolds the same processors onto their retained worker trays. The absent rank arrives later to complete the collective. The v3 checkpoint is preserved at tag `v1.1.0`, with its film and exact physics assets in the release.
 
 
 ![Film preview](assets/preview.jpg)
 
-**[Watch / download the film](https://github.com/66CF/sjtu-xflops-hpc-film/releases/download/v1.1.0/SJTU_Xflops_Physics_v3.mp4)** · **[Motion revision comparison (silent)](https://github.com/66CF/sjtu-xflops-hpc-film/releases/download/v1.0.0/SJTU_Xflops_Motion_Changes.mp4)** · **[All release assets](https://github.com/66CF/sjtu-xflops-hpc-film/releases/tag/v1.1.0)**
+**[Watch / download v5](https://github.com/66CF/sjtu-xflops-hpc-film/releases/download/v1.2.0/SJTU_Xflops_Cluster_v5.mp4)** · **[Middle sequence](https://github.com/66CF/sjtu-xflops-hpc-film/releases/download/v1.2.0/SJTU_Xflops_Cluster_v5_Middle.mp4)** · **[All release assets](https://github.com/66CF/sjtu-xflops-hpc-film/releases/tag/v1.2.0)**
 
 ## Motion and physics
 
@@ -24,18 +24,18 @@ The GPU cache was computed on an RTX 4070 Laptop GPU using CuPy/CUDA: 18,479 ret
 Install Python 3, NumPy, Pillow and FFmpeg (including FFprobe). The renderer uses the macOS Menlo font at `/System/Library/Fonts/Menlo.ttc`.
 
 ```bash
-git clone --branch v1.1.0 https://github.com/66CF/sjtu-xflops-hpc-film.git
+git clone --branch v1.2.0 https://github.com/66CF/sjtu-xflops-hpc-film.git
 cd sjtu-xflops-hpc-film
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-gh release download v1.1.0 --repo 66CF/sjtu-xflops-hpc-film --pattern physics-assets-v3.zip
-unzip physics-assets-v3.zip
+gh release download v1.2.0 --repo 66CF/sjtu-xflops-hpc-film --pattern physics-assets-v5.zip
+unzip physics-assets-v5.zip
 python3 source/build_director.py --check-only
 python3 source/build_director.py
 ```
 
-The v1.1.0 bundle reproduces the tagged v3 source. The current v5 source needs its freshly computed cluster collision cache in `work/physics-v5/`; the earlier annular-gather cache is rejected by preflight. **No GPU is needed to render baked caches.** The current output is `output/SJTU_Xflops_Cluster_v5.mp4`.
+The v1.2.0 bundle reproduces the tagged v5 source and restores the required caches under `work/physics-v5/`. The earlier annular-gather cache is rejected by preflight. The v3 source and assets remain available at `v1.1.0`. **No GPU is needed to render baked caches.** The current output is `output/SJTU_Xflops_Cluster_v5.mp4`.
 
 For CUDA recomputation and detailed production notes, see [source/README_PHYSICS.txt](source/README_PHYSICS.txt). The v5 sequence does not use the historical gather pass.
 
